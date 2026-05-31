@@ -25,6 +25,7 @@
 
 #define UNO_CARD_NONE 0xFF
 #define UNO_COLOR_NONE 0xFF
+#define UNO_WINNER_NONE 0xFF
 
 typedef uint8_t card_t;
 

@@ -85,7 +85,7 @@ static uint8_t pending_draw = 0;
 static bool pending_wild = false;
 static uint8_t pending_wild_player = 0;
 static uint8_t pending_wild_advance = 0;
-static uint8_t winner = UNO_COLOR_NONE;
+static uint8_t winner = UNO_WINNER_NONE;
 static char last_action[UNO_LAST_ACTION_LEN] = "";
 
 static uint8_t player_count = 1;
@@ -545,7 +545,7 @@ static void uno_start_game(void) {
     pending_wild = false;
     pending_wild_player = 0;
     pending_wild_advance = 0;
-    winner = UNO_COLOR_NONE;
+    winner = UNO_WINNER_NONE;
     drawn_this_turn = false;
 
     uno_build_deck();
