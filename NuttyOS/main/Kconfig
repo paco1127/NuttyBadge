@@ -1,0 +1,11 @@
+menu "NuttyUNO"
+
+config GAME_CHANNEL
+    int "UNO game channel"
+    range 0 255
+    default 1
+    help
+        BLE advertising channel for UNO multiplayer sessions. Devices must share the same
+        channel to see each other. The host advertises as UNO_<channel>.
+
+endmenu
