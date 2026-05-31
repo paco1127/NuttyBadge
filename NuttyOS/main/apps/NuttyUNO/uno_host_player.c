@@ -492,8 +492,9 @@ static void uno_handle_bot_turn(uint8_t player) {
             return;
         }
     }
+    uint8_t before_player = current_player;
     uno_handle_draw(player);
-    if (drawn_this_turn) {
+    if (current_player == before_player) {
         drawn_this_turn = false;
         uno_advance_turn(1);
     }
