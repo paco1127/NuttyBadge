@@ -577,38 +577,7 @@ static void uno_start_game(void) {
     g_ui_dirty = true;
 }
 
-static void uno_build_players_label(char *out, size_t out_len, bool lobby) {
-    size_t offset = 0;
-    if (out_len == 0) {
-        return;
-    }
-
-    out[0] = '\0';
-    for (uint8_t i = 0; i < UNO_MAX_PLAYERS; i++) {
-        if (lobby && i == 0) {
-            int wrote = snprintf(out + offset, out_len - offset, "P%u:%s\n", (unsigned)i, g_game.players[i].name);
-            if (wrote > 0) offset += (size_t)wrote;
-            continue;
-        }
-
-        if (!lobby && !g_game.players[i].active) {
-            continue;
-        }
-
-        if (lobby) {
-            const char *status = g_game.players[i].connected ? "" : (g_game.players[i].is_bot ? " (bot)" : " (open)");
-            int wrote = snprintf(out + offset, out_len - offset, "P%u:%s%s\n", (unsigned)i, g_game.players[i].name, status);
-            if (wrote > 0) offset += (size_t)wrote;
-        } else {
-            int wrote = snprintf(out + offset, out_len - offset, "P%u:%s %u\n", (unsigned)i, g_game.players[i].name, (unsigned)g_game.players[i].hand_count);
-            if (wrote > 0) offset += (size_t)wrote;
-        }
-
-        if (offset >= out_len) {
-            break;
-        }
-    }
-}
+/* uno_build_players_label removed — compact format done inline in ui_update */
 
 static void uno_ui_init(void) {
     uno_display_init();
@@ -704,8 +673,9 @@ static void uno_ui_update(void) {
     }
     uno_display_label_set_text(&g_ui.players_label, pbuf);
 
-    /* Last action — truncated to fit */
-    snprintf(buf, sizeof(buf), "%s", g_game.last_action);
+    /* Last action — truncated to fit tiny display */
+    strncpy(buf, g_game.last_action, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
     uno_display_label_set_text(&g_ui.log_label, buf);
 
     /* Wild selection */

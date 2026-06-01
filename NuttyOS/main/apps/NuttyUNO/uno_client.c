@@ -89,14 +89,7 @@ static int uno_gap_event(struct ble_gap_event *event, void *arg);
 static const char *g_client_name = NULL;
 static void uno_client_send_action(uint8_t action, uint8_t card_index, uint8_t wild_color);
 
-static void uno_client_set_last_action(const char *text) {
-    if (text == NULL) {
-        g_client.last_action[0] = '\0';
-    } else {
-        snprintf(g_client.last_action, sizeof(g_client.last_action), "%s", text);
-    }
-    g_client.ui_dirty = true;
-}
+/* uno_client_set_last_action removed — log set directly in handlers */
 
 static void uno_client_init_state(void) {
     memset(&g_client, 0, sizeof(g_client));
@@ -109,23 +102,7 @@ static void uno_client_init_state(void) {
     g_client.ui_dirty = true;
 }
 
-static void uno_build_players_label(char *out, size_t out_len) {
-    size_t offset = 0;
-    out[0] = '\0';
-
-    for (uint8_t i = 0; i < UNO_MAX_PLAYERS; i++) {
-        if (g_client.player_count == 0) {
-            break;
-        }
-        int wrote = snprintf(out + offset, out_len - offset, "P%u:%u\n", (unsigned)i, (unsigned)g_client.hand_sizes[i]);
-        if (wrote > 0) {
-            offset += (size_t)wrote;
-        }
-        if (offset >= out_len) {
-            break;
-        }
-    }
-}
+/* uno_build_players_label removed — compact format done inline in ui_update */
 
 static void uno_ui_init(void) {
     uno_display_init();
@@ -239,8 +216,9 @@ static void uno_ui_update(void) {
     }
     uno_display_label_set_text(&g_ui.players_label, pbuf);
 
-    /* Last action */
-    snprintf(buf, sizeof(buf), "%s", g_client.last_action);
+    /* Last action — truncated to fit tiny display */
+    strncpy(buf, g_client.last_action, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
     uno_display_label_set_text(&g_ui.log_label, buf);
 
     /* Wild selection */
