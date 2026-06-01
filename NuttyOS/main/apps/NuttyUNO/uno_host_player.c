@@ -1257,8 +1257,4 @@ void uno_host_main(void) {
     NuttyApps_launchAppByIndex(0);
 }
 
-NuttyAppDefinition NuttyUNOHost = {
-    .appName = "UNO Host",
-    .appMainEntry = uno_host_main,
-    .appHidden = false
-};
+/* NuttyUNOHost defined in NuttyUNO.c */

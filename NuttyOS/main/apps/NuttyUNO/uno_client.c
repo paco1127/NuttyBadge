@@ -666,8 +666,4 @@ void uno_client_main(void) {
     NuttyApps_launchAppByIndex(0);
 }
 
-NuttyAppDefinition NuttyUNOClient = {
-    .appName = "UNO Client",
-    .appMainEntry = uno_client_main,
-    .appHidden = false
-};
+/* NuttyUNOClient defined in NuttyUNO.c */
