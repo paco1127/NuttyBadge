@@ -1,0 +1,11 @@
+menu "NuttyUNO"
+
+config GAME_CHANNEL
+    int "UNO game channel"
+    range 0 255
+    default 0
+    help
+        Channel number used for BLE advertisement name (UNO_<channel>) and
+        the custom UNO GATT service UUID.
+
+endmenu
