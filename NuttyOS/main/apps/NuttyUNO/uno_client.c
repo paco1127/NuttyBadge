@@ -400,9 +400,9 @@ static int uno_chr_disc_cb(uint16_t conn_handle, const struct ble_gatt_error *er
                            const struct ble_gatt_chr *chr, void *arg) {
     (void)arg;
     if (error->status == 0) {
-        if (ble_uuid_cmp((const ble_uuid_t *)chr->uuid, &g_uno_state_uuid.u) == 0) {
+        if (ble_uuid_cmp(&chr->uuid.u, &g_uno_state_uuid.u) == 0) {
             g_client.state_handle = chr->val_handle;
-        } else if (ble_uuid_cmp((const ble_uuid_t *)chr->uuid, &g_uno_cmd_uuid.u) == 0) {
+        } else if (ble_uuid_cmp(&chr->uuid.u, &g_uno_cmd_uuid.u) == 0) {
             g_client.cmd_handle = chr->val_handle;
         }
         return 0;

@@ -1111,7 +1111,7 @@ static int uno_gap_event(struct ble_gap_event *event, void *arg) {
                 if (g_game.game_started) {
                     g_game.players[player_id].is_bot = true;
                     g_game.players[player_id].active = true;
-                    snprintf(g_game.players[player_id].name, sizeof(g_game.players[player_id].name), "Bot %u", (unsigned)player_id);
+                    snprintf(g_game.players[player_id].name, sizeof(g_game.players[player_id].name), "Bot %hu", (unsigned short)(uint8_t)player_id);
                 } else {
                     g_game.players[player_id].active = false;
                     g_game.players[player_id].is_bot = false;
