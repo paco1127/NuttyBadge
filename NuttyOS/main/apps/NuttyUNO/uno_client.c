@@ -134,22 +134,33 @@ static void uno_ui_init(void) {
     uno_display_lock();
     uno_display_clear();
 
-    uno_display_label_create(&g_ui.title_label, g_ui.root, 2, 0, "UNO Client", false);
-    uno_display_label_create(&g_ui.deck_label, g_ui.root, 80, 0, "Deck: 0", false);
-    uno_display_label_create(&g_ui.players_label, g_ui.root, 40, 10, "", true);
-    uno_display_label_create(&g_ui.log_label, g_ui.root, 2, 28, "", true);
-    uno_display_label_create(&g_ui.wild_label, g_ui.root, 2, 22, "", true);
-    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 46, "<", true);
-    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 46, ">", true);
+    /* Title row */
+    uno_display_label_create(&g_ui.title_label, g_ui.root, 2, 0, "UNO", false);
+    uno_display_label_create(&g_ui.deck_label, g_ui.root, 90, 0, "D:0", false);
 
-    uno_display_card_create(&g_ui.top_card, g_ui.root, 2, 8, 30, 18);
+    /* Top card icon: small 12x10 */
+    uno_display_card_create(&g_ui.top_card, g_ui.root, 2, 10, 12, 10);
 
-    int card_y = 40;
-    int card_x = 12;
+    /* Status line */
+    uno_display_label_create(&g_ui.log_label, g_ui.root, 18, 12, "", true);
+
+    /* Player counts */
+    uno_display_label_create(&g_ui.players_label, g_ui.root, 2, 22, "", true);
+
+    /* Wild selection */
+    uno_display_label_create(&g_ui.wild_label, g_ui.root, 2, 30, "", true);
+
+    /* Hand cards: tiny 8x12, 4 visible */
+    int card_y = 38;
+    int card_x = 4;
     for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
-        uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, card_x, card_y, UNO_CARD_W, UNO_CARD_H);
-        card_x += UNO_CARD_W + UNO_CARD_SPACING;
+        uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, card_x, card_y, 8, 12);
+        card_x += 10;
     }
+
+    /* Scroll arrows */
+    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 52, "<", true);
+    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 52, ">", true);
 
     uno_display_unlock();
 
@@ -166,15 +177,11 @@ static void uno_ui_update(void) {
         return;
     }
 
-    char title_text[32];
-    char deck_text[16];
-    char players_text[96];
-
+    char buf[20];
     uno_display_lock();
 
     if (!g_client.connected) {
-        snprintf(title_text, sizeof(title_text), "Scanning...");
-        uno_display_label_set_text(&g_ui.title_label, title_text);
+        uno_display_label_set_text(&g_ui.title_label, "Scanning...");
         uno_display_label_set_text(&g_ui.deck_label, "");
         uno_display_label_set_text(&g_ui.players_label, "");
         uno_display_label_set_text(&g_ui.log_label, "");
@@ -192,8 +199,7 @@ static void uno_ui_update(void) {
     }
 
     if (!g_client.game_started) {
-        snprintf(title_text, sizeof(title_text), "Waiting for host");
-        uno_display_label_set_text(&g_ui.title_label, title_text);
+        uno_display_label_set_text(&g_ui.title_label, "Waiting...");
         uno_display_label_set_text(&g_ui.deck_label, "");
         uno_display_label_set_text(&g_ui.players_label, "");
         uno_display_label_set_text(&g_ui.log_label, "");
@@ -210,36 +216,55 @@ static void uno_ui_update(void) {
         return;
     }
 
-    snprintf(title_text, sizeof(title_text), "Turn: P%u", (unsigned)g_client.current_player);
-    snprintf(deck_text, sizeof(deck_text), "Deck: %u", (unsigned)g_client.deck_count);
-    uno_build_players_label(players_text, sizeof(players_text));
+    /* Title: turn indicator */
+    uint8_t cp = g_client.current_player;
+    uint8_t me = g_client.player_id;
+    if (me != 0xFF && cp == me) {
+        snprintf(buf, sizeof(buf), "My Turn");
+    } else {
+        snprintf(buf, sizeof(buf), "P%u Turn", (unsigned)cp);
+    }
+    uno_display_label_set_text(&g_ui.title_label, buf);
 
-    uno_display_label_set_text(&g_ui.title_label, title_text);
-    uno_display_label_set_text(&g_ui.deck_label, deck_text);
-    uno_display_label_set_text(&g_ui.players_label, players_text);
-    uno_display_label_set_text(&g_ui.log_label, g_client.last_action);
+    /* Deck count */
+    snprintf(buf, sizeof(buf), "D:%u", (unsigned)g_client.deck_count);
+    uno_display_label_set_text(&g_ui.deck_label, buf);
 
+    /* Compact player counts */
+    char pbuf[40];
+    int po = 0;
+    for (uint8_t i = 0; i < UNO_MAX_PLAYERS; i++) {
+        if (g_client.hand_sizes[i] == 0 && i >= g_client.player_count) continue;
+        po += snprintf(pbuf + po, sizeof(pbuf) - po, "P%u:%u ", (unsigned)i, (unsigned)g_client.hand_sizes[i]);
+    }
+    uno_display_label_set_text(&g_ui.players_label, pbuf);
+
+    /* Last action */
+    snprintf(buf, sizeof(buf), "%s", g_client.last_action);
+    uno_display_label_set_text(&g_ui.log_label, buf);
+
+    /* Wild selection */
     if (g_ui.wild_select_active) {
-        const char *color = "RED";
-        if (g_ui.wild_color == UNO_COLOR_GREEN) color = "GREEN";
-        if (g_ui.wild_color == UNO_COLOR_BLUE) color = "BLUE";
-        if (g_ui.wild_color == UNO_COLOR_YELLOW) color = "YELLOW";
-        char wild_text[16];
-        snprintf(wild_text, sizeof(wild_text), "Wild: %s", color);
-        uno_display_label_set_text(&g_ui.wild_label, wild_text);
+        const char *cn = "R";
+        if (g_ui.wild_color == UNO_COLOR_GREEN) cn = "G";
+        if (g_ui.wild_color == UNO_COLOR_BLUE) cn = "B";
+        if (g_ui.wild_color == UNO_COLOR_YELLOW) cn = "Y";
+        snprintf(buf, sizeof(buf), "Color:%s", cn);
+        uno_display_label_set_text(&g_ui.wild_label, buf);
     } else {
         uno_display_label_set_text(&g_ui.wild_label, "");
     }
 
+    /* Top card */
     uno_display_card_set(&g_ui.top_card, g_client.top_card, false);
 
+    /* Hand */
     if (g_client.hand_total == 0) {
         g_ui.selected_index = 0;
         g_ui.scroll_offset = 0;
     } else if (g_ui.selected_index >= g_client.hand_total) {
         g_ui.selected_index = (uint8_t)(g_client.hand_total - 1);
     }
-
     if (g_ui.selected_index < g_ui.scroll_offset) {
         g_ui.scroll_offset = g_ui.selected_index;
     }
@@ -250,8 +275,7 @@ static void uno_ui_update(void) {
     for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
         uint8_t idx = (uint8_t)(g_ui.scroll_offset + i);
         if (idx < g_client.hand_total) {
-            bool selected = (idx == g_ui.selected_index);
-            uno_display_card_set(&g_ui.hand_cards[i], g_client.hand[idx], selected);
+            uno_display_card_set(&g_ui.hand_cards[i], g_client.hand[idx], idx == g_ui.selected_index);
         } else {
             uno_display_card_set(&g_ui.hand_cards[i], uno_card_none(), false);
         }
