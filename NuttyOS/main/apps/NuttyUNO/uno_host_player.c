@@ -1121,6 +1121,9 @@ static void uno_ble_advertise(void) {
 
     ble_svc_gap_device_name_set(adv_name);
 
+    /* Stop any active advertising before reconfiguring */
+    ble_gap_adv_stop();
+
     struct ble_hs_adv_fields fields;
     memset(&fields, 0, sizeof(fields));
     fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
@@ -1154,8 +1157,12 @@ static void uno_ble_host_task(void *param) {
 static void uno_ble_init(void) {
     esp_err_t nimble_ret = nimble_port_init();
     if (nimble_ret == ESP_ERR_INVALID_STATE) {
-        ESP_LOGI(TAG, "NimBLE already initialized, continuing...");
-    } else if (nimble_ret != ESP_OK) {
+        ESP_LOGI(TAG, "NimBLE already initialized, re-advertising...");
+        /* NimBLE already running — just restart advertising with new channel */
+        uno_ble_advertise();
+        return;
+    }
+    if (nimble_ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init NimBLE: %s", esp_err_to_name(nimble_ret));
         return;
     }
@@ -1179,10 +1186,6 @@ static void uno_ble_init(void) {
 
     ble_hs_cfg.sync_cb = uno_ble_on_sync;
     nimble_port_freertos_init(uno_ble_host_task);
-
-    if (nimble_ret == ESP_ERR_INVALID_STATE) {
-        uno_ble_advertise();
-    }
 }
 #endif
 
@@ -1197,6 +1200,10 @@ static lv_obj_t *s_lobby_plbl[3];
 
 static void host_lobby_ui_draw(void) {
     lv_obj_t *root = NuttyDisplay_getUserAppArea();
+    if (root == NULL) {
+        ESP_LOGW(TAG, "Lobby draw: display root is NULL");
+        return;
+    }
     NuttyDisplay_lockLVGL();
     lv_obj_clean(root);
     lv_obj_set_style_border_width(root, 0, LV_PART_MAIN);
@@ -1317,8 +1324,6 @@ void uno_host_main(void) {
     g_action_queue = xQueueCreateStatic(UNO_ACTION_QUEUE_LEN, sizeof(uno_msg_action_t), g_action_queue_storage, &g_action_queue_struct);
 
     uno_init_game_state();
-    uno_ui_init();
-    uno_ui_update();
 
 #ifdef CONFIG_BT_ENABLED
     uno_ble_init();
@@ -1331,7 +1336,9 @@ void uno_host_main(void) {
         return;
     }
 
-    /* Lobby finished — start the game */
+    /* Lobby finished — init game UI and start the game */
+    uno_ui_init();
+    uno_ui_update();
     uno_start_game();
 
     while (1) {

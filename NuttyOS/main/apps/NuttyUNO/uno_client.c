@@ -446,6 +446,9 @@ static int uno_svc_disc_cb(uint16_t conn_handle, const struct ble_gatt_error *er
 }
 
 static void uno_start_scan(void) {
+    /* Cancel any active scan before restarting */
+    ble_gap_disc_cancel();
+
     struct ble_gap_disc_params scan_params;
     memset(&scan_params, 0, sizeof(scan_params));
     scan_params.itvl = BLE_GAP_SCAN_ITVL_MS(100);
@@ -532,8 +535,12 @@ static void uno_ble_host_task(void *param) {
 static void uno_ble_init(void) {
     esp_err_t nimble_ret = nimble_port_init();
     if (nimble_ret == ESP_ERR_INVALID_STATE) {
-        ESP_LOGI(TAG, "NimBLE already initialized, continuing...");
-    } else if (nimble_ret != ESP_OK) {
+        ESP_LOGI(TAG, "NimBLE already initialized, restarting scan...");
+        /* NimBLE already running — just restart scanning with new channel */
+        uno_start_scan();
+        return;
+    }
+    if (nimble_ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init NimBLE: %s", esp_err_to_name(nimble_ret));
         return;
     }
@@ -547,10 +554,6 @@ static void uno_ble_init(void) {
 
     ble_hs_cfg.sync_cb = uno_ble_on_sync;
     nimble_port_freertos_init(uno_ble_host_task);
-
-    if (nimble_ret == ESP_ERR_INVALID_STATE) {
-        uno_start_scan();
-    }
 }
 #else
 static void uno_client_send_action(uint8_t action, uint8_t card_index, uint8_t wild_color) {
