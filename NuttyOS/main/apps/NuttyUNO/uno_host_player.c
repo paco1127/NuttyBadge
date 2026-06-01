@@ -1186,6 +1186,10 @@ static void uno_ble_init(void) {
 }
 #endif
 
+void uno_set_requested_bots(uint8_t count) {
+    g_game.requested_bots = count;
+}
+
 void uno_host_main(void) {
     ESP_LOGI(TAG, "Starting UNO Host");
 

@@ -13,5 +13,6 @@ extern NuttyAppDefinition NuttyUNOClient;
 /* Function pointers for launching host/client from menu */
 extern void uno_host_main(void);
 extern void uno_client_main(void);
+extern void uno_set_requested_bots(uint8_t count);
 
 #endif /* _NUTTYUNO_H */
