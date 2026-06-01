@@ -173,4 +173,7 @@ void led_set_selected_card(card_t card);
 void set_custom_led(uint8_t mode);
 void uno_custom_led_update(void);
 
+/* Runtime game channel — set from the menu, used for BLE UUID / adv name */
+extern uint8_t g_game_channel;
+
 #endif /* NUTTY_UNO_COMMON_H */

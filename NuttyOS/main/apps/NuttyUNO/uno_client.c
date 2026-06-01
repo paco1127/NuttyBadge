@@ -61,6 +61,7 @@ typedef struct {
     uno_display_label_t players_label;
     uno_display_label_t log_label;
     uno_display_label_t wild_label;
+    uno_display_label_t conn_label;
     uno_display_label_t left_arrow;
     uno_display_label_t right_arrow;
     uno_display_card_t top_card;
@@ -124,11 +125,14 @@ static void uno_ui_init(void) {
     /* Player counts */
     uno_display_label_create(&g_ui.players_label, g_ui.root, 2, 22, "", true);
 
+    /* Connected-to host */
+    uno_display_label_create(&g_ui.conn_label, g_ui.root, 2, 30, "", true);
+
     /* Wild selection */
-    uno_display_label_create(&g_ui.wild_label, g_ui.root, 2, 30, "", true);
+    uno_display_label_create(&g_ui.wild_label, g_ui.root, 2, 38, "", true);
 
     /* Hand cards: tiny 8x12, 4 visible */
-    int card_y = 38;
+    int card_y = 46;
     int card_x = 4;
     for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
         uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, card_x, card_y, 8, 12);
@@ -136,8 +140,8 @@ static void uno_ui_init(void) {
     }
 
     /* Scroll arrows */
-    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 52, "<", true);
-    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 52, ">", true);
+    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 54, "<", true);
+    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 54, ">", true);
 
     uno_display_unlock();
 
@@ -162,6 +166,7 @@ static void uno_ui_update(void) {
         uno_display_label_set_text(&g_ui.deck_label, "");
         uno_display_label_set_text(&g_ui.players_label, "");
         uno_display_label_set_text(&g_ui.log_label, "");
+        uno_display_label_set_text(&g_ui.conn_label, "");
         uno_display_label_set_text(&g_ui.wild_label, "");
         uno_display_card_set(&g_ui.top_card, uno_card_none(), false);
         for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
@@ -180,6 +185,8 @@ static void uno_ui_update(void) {
         uno_display_label_set_text(&g_ui.deck_label, "");
         uno_display_label_set_text(&g_ui.players_label, "");
         uno_display_label_set_text(&g_ui.log_label, "");
+        snprintf(buf, sizeof(buf), "Host:%u", (unsigned)g_game_channel);
+        uno_display_label_set_text(&g_ui.conn_label, buf);
         uno_display_label_set_text(&g_ui.wild_label, "");
         uno_display_card_set(&g_ui.top_card, uno_card_none(), false);
         for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
@@ -215,6 +222,10 @@ static void uno_ui_update(void) {
         po += snprintf(pbuf + po, sizeof(pbuf) - po, "P%u:%u ", (unsigned)i, (unsigned)g_client.hand_sizes[i]);
     }
     uno_display_label_set_text(&g_ui.players_label, pbuf);
+
+    /* Connected host info */
+    snprintf(buf, sizeof(buf), "Host:%u", (unsigned)g_game_channel);
+    uno_display_label_set_text(&g_ui.conn_label, buf);
 
     /* Last action — truncated to fit tiny display */
     strncpy(buf, g_client.last_action, sizeof(buf) - 1);
@@ -283,7 +294,7 @@ static void uno_ble_uuid128_init(ble_uuid128_t *uuid, uint8_t suffix) {
         0x9e, 0xca, 0xdc, 0x24,
         0x0e, 0xe5, 0xa9, 0xe0,
         0x93, 0xf3, 0xa3, 0xb5,
-        suffix, UNO_GAME_CHANNEL, 0x40, 0x6e);
+        suffix, g_game_channel, 0x40, 0x6e);
 }
 
 static void uno_client_send_hello(void) {
@@ -378,7 +389,7 @@ static bool uno_adv_name_matches(const struct ble_gap_disc_desc *disc) {
     uint8_t pos = 0;
 
     char target[16];
-    snprintf(target, sizeof(target), "UNO_%u", (unsigned)UNO_GAME_CHANNEL);
+    snprintf(target, sizeof(target), "UNO_%u", (unsigned)g_game_channel);
 
     while (pos < data_len) {
         uint8_t field_len = data[pos];
@@ -646,7 +657,8 @@ void uno_client_main(void) {
 #ifdef CONFIG_BT_ENABLED
     uno_ble_init();
 #else
-    uno_client_set_last_action("BT disabled");
+    strncpy(g_client.last_action, "BT disabled", sizeof(g_client.last_action) - 1);
+    g_client.last_action[sizeof(g_client.last_action) - 1] = '\0';
 #endif
 
     while (1) {

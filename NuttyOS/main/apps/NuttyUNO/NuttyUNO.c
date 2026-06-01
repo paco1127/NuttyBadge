@@ -19,8 +19,7 @@ static const char *TAG = "NuttyUNO";
 /* Display: 128 x 59 pixels. Font: cg_pixel_4x5_mono = 4w x 5h per char */
 
 /* ── Shared state ─────────────────────────────────────────────────── */
-static uint8_t g_bot_count = 1;
-static uint8_t g_game_channel = UNO_GAME_CHANNEL;
+uint8_t g_game_channel = UNO_GAME_CHANNEL;
 
 /* ═══════════════════════════════════════════════════════════════════
  *  MAIN MENU — Channel select + Host / Join
@@ -81,81 +80,14 @@ static void menu_draw(void) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
- *  HOST LOBBY — Bot count, channel, start game
- * ═══════════════════════════════════════════════════════════════════ */
-
-static lv_obj_t *lobby_bot_lbl;
-static lv_obj_t *lobby_tot_lbl;
-
-static void host_lobby_draw(void) {
-    lv_obj_t *root = NuttyDisplay_getUserAppArea();
-    NuttyDisplay_lockLVGL();
-    lv_obj_clean(root);
-    lv_obj_set_style_border_width(root, 0, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(root, LV_OPA_TRANSP, LV_PART_MAIN);
-
-    /* Title */
-    lv_obj_t *title = lv_label_create(root);
-    lv_label_set_text(title, "UNO Host");
-    lv_obj_set_pos(title, 2, 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_10, LV_PART_MAIN);
-
-    /* Channel */
-    lv_obj_t *ch = lv_label_create(root);
-    char buf[16];
-    snprintf(buf, sizeof(buf), "Ch:%u", (unsigned)g_game_channel);
-    lv_label_set_text(ch, buf);
-    lv_obj_set_pos(ch, 80, 0);
-    lv_obj_set_style_text_font(ch, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    /* Separator */
-    lv_obj_t *sep = lv_obj_create(root);
-    lv_obj_set_size(sep, 124, 1);
-    lv_obj_set_pos(sep, 2, 10);
-    lv_obj_set_style_bg_color(sep, lv_color_white(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
-
-    /* Bot count */
-    lobby_bot_lbl = lv_label_create(root);
-    snprintf(buf, sizeof(buf), "Bots: %u", (unsigned)g_bot_count);
-    lv_label_set_text(lobby_bot_lbl, buf);
-    lv_obj_set_pos(lobby_bot_lbl, 4, 14);
-    lv_obj_set_style_text_font(lobby_bot_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    /* Total players */
-    lobby_tot_lbl = lv_label_create(root);
-    snprintf(buf, sizeof(buf), "Total: %u", (unsigned)(1 + g_bot_count));
-    lv_label_set_text(lobby_tot_lbl, buf);
-    lv_obj_set_pos(lobby_tot_lbl, 4, 22);
-    lv_obj_set_style_text_font(lobby_tot_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    /* Instructions */
-    lv_obj_t *instr = lv_label_create(root);
-    lv_label_set_text(instr, "U/D:Bot  A:Start");
-    lv_obj_set_pos(instr, 4, 52);
-    lv_obj_set_style_text_font(instr, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    NuttyDisplay_unlockLVGL();
-}
-
-static void host_lobby_update_labels(void) {
-    char buf[20];
-    NuttyDisplay_lockLVGL();
-    snprintf(buf, sizeof(buf), "Bots: %u", (unsigned)g_bot_count);
-    lv_label_set_text(lobby_bot_lbl, buf);
-    snprintf(buf, sizeof(buf), "Total: %u", (unsigned)(1 + g_bot_count));
-    lv_label_set_text(lobby_tot_lbl, buf);
-    NuttyDisplay_unlockLVGL();
-}
-
-/* ═══════════════════════════════════════════════════════════════════
- *  CLIENT CONNECT — Scan / connect status
+ *  CLIENT CONNECT — Channel select + scan / connect status
  * ═══════════════════════════════════════════════════════════════════ */
 
 typedef enum { CSTATE_IDLE, CSTATE_SCANNING, CSTATE_CONNECTED } cstate_t;
 static cstate_t g_cstate = CSTATE_IDLE;
 static lv_obj_t *client_st_lbl;
+static lv_obj_t *client_ch_lbl;
+static lv_obj_t *client_host_lbl;
 
 static void client_connect_draw(void) {
     lv_obj_t *root = NuttyDisplay_getUserAppArea();
@@ -170,13 +102,13 @@ static void client_connect_draw(void) {
     lv_obj_set_pos(title, 2, 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_10, LV_PART_MAIN);
 
-    /* Channel */
-    lv_obj_t *ch = lv_label_create(root);
+    /* Channel — adjustable with L/R */
+    client_ch_lbl = lv_label_create(root);
     char buf[16];
     snprintf(buf, sizeof(buf), "Ch:%u", (unsigned)g_game_channel);
-    lv_label_set_text(ch, buf);
-    lv_obj_set_pos(ch, 80, 0);
-    lv_obj_set_style_text_font(ch, &cg_pixel_4x5_mono, LV_PART_MAIN);
+    lv_label_set_text(client_ch_lbl, buf);
+    lv_obj_set_pos(client_ch_lbl, 80, 0);
+    lv_obj_set_style_text_font(client_ch_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
     /* Separator */
     lv_obj_t *sep = lv_obj_create(root);
@@ -186,18 +118,35 @@ static void client_connect_draw(void) {
     lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
 
+    /* Host name being scanned */
+    client_host_lbl = lv_label_create(root);
+    snprintf(buf, sizeof(buf), "UNO_%u", (unsigned)g_game_channel);
+    lv_label_set_text(client_host_lbl, buf);
+    lv_obj_set_pos(client_host_lbl, 4, 16);
+    lv_obj_set_style_text_font(client_host_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
+
     /* Status */
     client_st_lbl = lv_label_create(root);
-    lv_label_set_text(client_st_lbl, "Press A");
-    lv_obj_set_pos(client_st_lbl, 4, 20);
+    lv_label_set_text(client_st_lbl, "Press A scan");
+    lv_obj_set_pos(client_st_lbl, 4, 26);
     lv_obj_set_style_text_font(client_st_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
     /* Instructions */
     lv_obj_t *instr = lv_label_create(root);
-    lv_label_set_text(instr, "A:Connect  B:Back");
+    lv_label_set_text(instr, "L/R:Ch  A:Scan  B:Back");
     lv_obj_set_pos(instr, 4, 52);
     lv_obj_set_style_text_font(instr, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
+    NuttyDisplay_unlockLVGL();
+}
+
+static void client_connect_update_ch(void) {
+    char buf[16];
+    NuttyDisplay_lockLVGL();
+    snprintf(buf, sizeof(buf), "Ch:%u", (unsigned)g_game_channel);
+    lv_label_set_text(client_ch_lbl, buf);
+    snprintf(buf, sizeof(buf), "UNO_%u", (unsigned)g_game_channel);
+    lv_label_set_text(client_host_lbl, buf);
     NuttyDisplay_unlockLVGL();
 }
 
@@ -259,38 +208,11 @@ static void uno_menu_main(void) {
         if (uno_btn_play_pressed()) {
             if (sel == 0) {
                 /* ── HOST path ── */
-                g_bot_count = 1;
-                host_lobby_draw();
-
-                bool in_lobby = true;
-                while (in_lobby) {
-                    if (uno_btn_up_pressed()) {
-                        if (g_bot_count < 3) {
-                            g_bot_count++;
-                            host_lobby_update_labels();
-                        }
-                    }
-                    if (uno_btn_down_pressed()) {
-                        if (g_bot_count > 0) {
-                            g_bot_count--;
-                            host_lobby_update_labels();
-                        }
-                    }
-                    if (uno_btn_play_pressed()) {
-                        uno_set_requested_bots(g_bot_count);
-                        in_lobby = false;
-                        in_menu = false;
-                        uno_display_clear();
-                        uno_host_main();
-                        return;
-                    }
-                    if (uno_btn_draw_pressed() || uno_btn_back_pressed()) {
-                        in_lobby = false;
-                        menu_draw();
-                    }
-                    uno_custom_led_update();
-                    vTaskDelay(pdMS_TO_TICKS(10));
-                }
+                uno_set_requested_bots(1);
+                in_menu = false;
+                uno_display_clear();
+                uno_host_main();
+                return;
             } else {
                 /* ── CLIENT path ── */
                 g_cstate = CSTATE_IDLE;
@@ -298,6 +220,18 @@ static void uno_menu_main(void) {
 
                 bool in_client = true;
                 while (in_client) {
+                    if (uno_btn_left_pressed()) {
+                        if (g_game_channel > 0) {
+                            g_game_channel--;
+                            client_connect_update_ch();
+                        }
+                    }
+                    if (uno_btn_right_pressed()) {
+                        if (g_game_channel < 255) {
+                            g_game_channel++;
+                            client_connect_update_ch();
+                        }
+                    }
                     if (uno_btn_play_pressed()) {
                         g_cstate = CSTATE_SCANNING;
                         NuttyDisplay_lockLVGL();
