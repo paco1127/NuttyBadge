@@ -151,8 +151,7 @@ void app_main(void) {
     NuttyApps_registerApp(NuttyBTRemote);
     NuttyApps_registerApp(NuttyCounter);
     NuttyApps_registerApp(NuttyBTScanner);
-    NuttyApps_registerApp(NuttyUNOHost);
-    NuttyApps_registerApp(NuttyUNOClient);
+    NuttyApps_registerApp(NuttyUNO);
     NuttyApps_registerApp(NuttyStopwatch);
     NuttyApps_registerParamedApp(NuttyFileManager);
     NuttyApps_registerApp(NuttySettings);

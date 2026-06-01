@@ -33,6 +33,7 @@ idf_component_register(
                     SRCS "apps/NuttyBTRemote/NuttyBTRemote.c"
                     SRCS "apps/NuttyCounter/NuttyCounter.c"
                     SRCS "apps/NuttyBTScanner/NuttyBTScanner.c"
+                    SRCS "apps/NuttyUNO/NuttyUNO.c"
                     SRCS "apps/NuttyUNO/uno_host_player.c"
                     SRCS "apps/NuttyUNO/uno_client.c"
                     SRCS "apps/NuttyUNO/uno_hal.c"

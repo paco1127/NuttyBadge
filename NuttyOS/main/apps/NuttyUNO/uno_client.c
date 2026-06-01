@@ -629,7 +629,7 @@ static void uno_update_custom_led(void) {
     }
 }
 
-static void uno_client_main(void) {
+void uno_client_main(void) {
     ESP_LOGI(TAG, "Starting UNO Client");
 
     uno_led_init();

@@ -1200,7 +1200,7 @@ static void uno_ble_init(void) {
 }
 #endif
 
-static void uno_host_main(void) {
+void uno_host_main(void) {
     ESP_LOGI(TAG, "Starting UNO Host");
 
     uno_led_init();
