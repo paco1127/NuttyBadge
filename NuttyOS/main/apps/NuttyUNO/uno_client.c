@@ -636,6 +636,7 @@ void uno_client_main(void) {
 
     uno_led_init();
     uno_display_init();
+    uno_btn_init();
     NuttyInput_clearButtonHoldState(NUTTYINPUT_BTN_ALL);
 
     uno_client_init_state();
@@ -661,7 +662,7 @@ void uno_client_main(void) {
             uno_ui_update();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(30));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     uno_display_clear();

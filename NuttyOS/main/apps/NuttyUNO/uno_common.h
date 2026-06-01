@@ -147,6 +147,7 @@ typedef struct {
     void *label;
 } uno_display_card_t;
 
+void uno_btn_init(void);
 void uno_display_init(void);
 void uno_display_clear(void);
 void uno_display_lock(void);

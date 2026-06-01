@@ -210,6 +210,7 @@ static void uno_menu_main(void) {
 
     uno_led_init();
     uno_display_init();
+    uno_btn_init();
     NuttyInput_clearButtonHoldState(NUTTYINPUT_BTN_ALL);
 
     uint8_t sel = 0;  /* 0=Host, 1=Join */
@@ -288,7 +289,7 @@ static void uno_menu_main(void) {
                         menu_draw();
                     }
                     uno_custom_led_update();
-                    vTaskDelay(pdMS_TO_TICKS(50));
+                    vTaskDelay(pdMS_TO_TICKS(10));
                 }
             } else {
                 /* ── CLIENT path ── */
@@ -313,7 +314,7 @@ static void uno_menu_main(void) {
                         menu_draw();
                     }
                     uno_custom_led_update();
-                    vTaskDelay(pdMS_TO_TICKS(50));
+                    vTaskDelay(pdMS_TO_TICKS(10));
                 }
             }
         }
@@ -321,7 +322,7 @@ static void uno_menu_main(void) {
             in_menu = false;
         }
         uno_custom_led_update();
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     uno_display_clear();

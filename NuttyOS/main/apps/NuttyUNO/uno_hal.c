@@ -180,33 +180,45 @@ void uno_display_obj_set_hidden(void *obj, bool hidden) {
     }
 }
 
-bool uno_btn_up_pressed(void) {
-    return NuttyInput_waitSingleButtonHoldAndReleasedNonBlock(NUTTYINPUT_BTN_UP);
+/* ── Rising-edge button detection ──────────────────────────────────
+ * Instead of waiting for press-hold-release (which causes lag),
+ * we detect the moment a button transitions from NOT-pressed to
+ * pressed.  This gives instant response on the press-down event.
+ *
+ * uno_btn_init() must be called once before use to capture the
+ * initial button state so that any already-held buttons do not
+ * trigger false rising edges.
+ */
+static uint16_t s_prev_btn = 0;
+
+void uno_btn_init(void) {
+    /* Capture current debounced state so held buttons don't trigger */
+    s_prev_btn = 0;
+    if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_UP))    s_prev_btn |= NUTTYINPUT_BTN_UP;
+    if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_DOWN))  s_prev_btn |= NUTTYINPUT_BTN_DOWN;
+    if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_LEFT))  s_prev_btn |= NUTTYINPUT_BTN_LEFT;
+    if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_RIGHT)) s_prev_btn |= NUTTYINPUT_BTN_RIGHT;
+    if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_A))     s_prev_btn |= NUTTYINPUT_BTN_A;
+    if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_B))     s_prev_btn |= NUTTYINPUT_BTN_B;
 }
 
-bool uno_btn_down_pressed(void) {
-    return NuttyInput_waitSingleButtonHoldAndReleasedNonBlock(NUTTYINPUT_BTN_DOWN);
+static bool uno_btn_rising_edge(uint16_t btn) {
+    uint16_t now = 0;
+    if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(btn)) {
+        now = btn;
+    }
+    bool rising = (now & ~s_prev_btn) & btn;
+    s_prev_btn = (s_prev_btn & ~btn) | now;
+    return rising;
 }
 
-bool uno_btn_left_pressed(void) {
-    return NuttyInput_waitSingleButtonHoldAndReleasedNonBlock(NUTTYINPUT_BTN_LEFT);
-}
-
-bool uno_btn_right_pressed(void) {
-    return NuttyInput_waitSingleButtonHoldAndReleasedNonBlock(NUTTYINPUT_BTN_RIGHT);
-}
-
-bool uno_btn_play_pressed(void) {
-    return NuttyInput_waitSingleButtonHoldAndReleasedNonBlock(NUTTYINPUT_BTN_A);
-}
-
-bool uno_btn_draw_pressed(void) {
-    return NuttyInput_waitSingleButtonHoldAndReleasedNonBlock(NUTTYINPUT_BTN_B);
-}
-
-bool uno_btn_back_pressed(void) {
-    return NuttyInput_waitSingleButtonHoldLongNonBlock(NUTTYINPUT_BTN_START);
-}
+bool uno_btn_up_pressed(void)    { return uno_btn_rising_edge(NUTTYINPUT_BTN_UP); }
+bool uno_btn_down_pressed(void)  { return uno_btn_rising_edge(NUTTYINPUT_BTN_DOWN); }
+bool uno_btn_left_pressed(void)  { return uno_btn_rising_edge(NUTTYINPUT_BTN_LEFT); }
+bool uno_btn_right_pressed(void) { return uno_btn_rising_edge(NUTTYINPUT_BTN_RIGHT); }
+bool uno_btn_play_pressed(void)  { return uno_btn_rising_edge(NUTTYINPUT_BTN_A); }
+bool uno_btn_draw_pressed(void)  { return uno_btn_rising_edge(NUTTYINPUT_BTN_B); }
+bool uno_btn_back_pressed(void)  { return NuttyInput_waitSingleButtonHoldLongNonBlock(NUTTYINPUT_BTN_START); }
 
 /* ── LED helpers ──────────────────────────────────────────────────── */
 
