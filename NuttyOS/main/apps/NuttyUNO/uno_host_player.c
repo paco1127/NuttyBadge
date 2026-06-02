@@ -1230,24 +1230,74 @@ void uno_set_requested_bots(uint8_t count) {
 void uno_host_main(void) {
     ESP_LOGI(TAG, "UNO Host starting");
 
+    /* 1. Init hardware */
     uno_led_init();
-    uno_display_init();
     uno_btn_init();
 
+    /* 2. Init display — get root, clean it, set styles */
+    uno_display_init();
+    g_ui.root = uno_display_get_root();
+    if (g_ui.root == NULL) {
+        ESP_LOGE(TAG, "NULL display root!");
+        NuttyApps_launchAppByIndex(0);
+        return;
+    }
+
+    /* 3. Create all UI objects (used for both lobby and game) */
+    NuttyDisplay_lockLVGL();
+    lv_obj_clean(g_ui.root);
+    lv_obj_set_style_border_width(g_ui.root, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(g_ui.root, LV_OPA_TRANSP, LV_PART_MAIN);
+
+    /* Title row */
+    uno_display_label_create(&g_ui.title_label, g_ui.root, 2, 0, "UNO Host", false);
+    uno_display_label_create(&g_ui.deck_label, g_ui.root, 80, 0, "Bots:1", false);
+    /* Separator */
+    lv_obj_t *sep = lv_obj_create(g_ui.root);
+    lv_obj_set_size(sep, 124, 1);
+    lv_obj_set_pos(sep, 2, 10);
+    lv_obj_set_style_bg_color(sep, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
+    /* Status lines */
+    uno_display_label_create(&g_ui.log_label, g_ui.root, 4, 14, "Conn:0", true);
+    uno_display_label_create(&g_ui.players_label, g_ui.root, 4, 22, "P2:-- P3:-- P4:--", true);
+    uno_display_label_create(&g_ui.wild_label, g_ui.root, 4, 30, "U/D:Bot  A:Start", true);
+    /* Top card icon */
+    uno_display_card_create(&g_ui.top_card, g_ui.root, 2, 38, 12, 10);
+    /* Hand cards */
+    int cx = 20;
+    for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
+        uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, cx, 38, 8, 12);
+        cx += 10;
+    }
+    /* Scroll arrows */
+    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 52, "<", true);
+    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 52, ">", true);
+
+    NuttyDisplay_unlockLVGL();
+
+    g_ui.initialized = true;
+    g_ui.selected_index = 0;
+    g_ui.scroll_offset = 0;
+    g_ui.wild_select_active = false;
+    g_ui.wild_color = UNO_COLOR_RED;
+
+    /* 3. Init game state */
     g_action_queue = xQueueCreateStatic(UNO_ACTION_QUEUE_LEN, sizeof(uno_msg_action_t),
                                         g_action_queue_storage, &g_action_queue_struct);
     uno_init_game_state();
 
-    /* Init game UI once — it handles both lobby and game display */
-    uno_ui_init();
-    uno_ui_update();
-
-    /* Start BLE (non-blocking, creates its own task) */
+    /* 4. Start BLE */
 #ifdef CONFIG_BT_ENABLED
     uno_ble_init();
 #endif
 
+    /* 5. Force first draw */
+    g_ui_dirty = true;
+
     /* ── Lobby loop ────────────────────────────────────────────────── */
+    ESP_LOGI(TAG, "Entering lobby loop");
     while (!g_game.game_started) {
         if (uno_btn_up_pressed()) {
             if (g_game.requested_bots < 3) { g_game.requested_bots++; g_ui_dirty = true; }
@@ -1259,9 +1309,7 @@ void uno_host_main(void) {
             uno_start_game();
         }
         if (uno_btn_back_pressed()) {
-            uno_display_clear();
-            NuttyApps_launchAppByIndex(0);
-            return;
+            break;
         }
         if (g_ui_dirty) uno_ui_update();
         uno_update_custom_led();
@@ -1269,27 +1317,31 @@ void uno_host_main(void) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-    /* ── Game loop (UI already initialized, just update) ──────────── */
-    while (1) {
-        if (uno_btn_back_pressed()) break;
+    /* ── Game loop ─────────────────────────────────────────────────── */
+    if (g_game.game_started) {
+        ESP_LOGI(TAG, "Entering game loop");
+        while (1) {
+            if (uno_btn_back_pressed()) break;
 
-        uno_handle_local_input();
-        uno_process_action_queue();
+            uno_handle_local_input();
+            uno_process_action_queue();
 
-        if (!g_game.game_over) {
-            uno_player_t *cur = &g_game.players[g_game.current_player];
-            if (cur->is_bot && cur->active) uno_bot_take_turn(g_game.current_player);
-        }
+            if (!g_game.game_over) {
+                uno_player_t *cur = &g_game.players[g_game.current_player];
+                if (cur->is_bot && cur->active) uno_bot_take_turn(g_game.current_player);
+            }
 
 #ifdef CONFIG_BT_ENABLED
-        if (g_state_dirty) { g_state_dirty = false; uno_broadcast_state(); }
+            if (g_state_dirty) { g_state_dirty = false; uno_broadcast_state(); }
 #endif
-        uno_update_custom_led();
-        uno_custom_led_update();
-        if (g_ui_dirty) uno_ui_update();
-        vTaskDelay(pdMS_TO_TICKS(10));
+            uno_update_custom_led();
+            uno_custom_led_update();
+            if (g_ui_dirty) uno_ui_update();
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
     }
 
+    ESP_LOGI(TAG, "UNO Host exiting");
     uno_display_clear();
     NuttyApps_launchAppByIndex(0);
 }

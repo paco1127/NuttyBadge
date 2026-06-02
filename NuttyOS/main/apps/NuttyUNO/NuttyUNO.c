@@ -217,7 +217,6 @@ static void uno_menu_main(void) {
                 /* ── HOST path ── */
                 uno_set_requested_bots(1);
                 in_menu = false;
-                uno_display_clear();
                 uno_host_main();
                 return;
             } else {
@@ -246,7 +245,6 @@ static void uno_menu_main(void) {
                         NuttyDisplay_unlockLVGL();
                         in_client = false;
                         in_menu = false;
-                        uno_display_clear();
                         uno_client_main();
                         return;
                     }

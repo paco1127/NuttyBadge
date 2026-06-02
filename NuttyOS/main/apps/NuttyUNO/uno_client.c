@@ -653,39 +653,86 @@ static void uno_update_custom_led(void) {
 }
 
 void uno_client_main(void) {
-    ESP_LOGI(TAG, "Starting UNO Client");
+    ESP_LOGI(TAG, "UNO Client starting");
 
+    /* 1. Init hardware */
     uno_led_init();
-    uno_display_init();
     uno_btn_init();
 
-    uno_client_init_state();
-    uno_ui_init();
-    uno_ui_update();
+    /* 2. Init display */
+    uno_display_init();
+    g_ui.root = uno_display_get_root();
+    if (g_ui.root == NULL) {
+        ESP_LOGE(TAG, "NULL display root!");
+        NuttyApps_launchAppByIndex(0);
+        return;
+    }
 
+    /* 3. Create UI objects */
+    NuttyDisplay_lockLVGL();
+    lv_obj_clean(g_ui.root);
+    lv_obj_set_style_border_width(g_ui.root, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(g_ui.root, LV_OPA_TRANSP, LV_PART_MAIN);
+
+    uno_display_label_create(&g_ui.title_label, g_ui.root, 2, 0, "UNO Join", false);
+    uno_display_label_create(&g_ui.deck_label, g_ui.root, 80, 0, "Ch:0", false);
+
+    lv_obj_t *sep = lv_obj_create(g_ui.root);
+    lv_obj_set_size(sep, 124, 1);
+    lv_obj_set_pos(sep, 2, 10);
+    lv_obj_set_style_bg_color(sep, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
+
+    uno_display_label_create(&g_ui.log_label, g_ui.root, 4, 14, "Scanning...", true);
+    uno_display_label_create(&g_ui.players_label, g_ui.root, 4, 22, "", true);
+    uno_display_label_create(&g_ui.conn_label, g_ui.root, 4, 30, "", true);
+    uno_display_label_create(&g_ui.wild_label, g_ui.root, 4, 38, "", true);
+
+    uno_display_card_create(&g_ui.top_card, g_ui.root, 2, 38, 12, 10);
+    int cx = 20;
+    for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
+        uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, cx, 38, 8, 12);
+        cx += 10;
+    }
+    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 52, "<", true);
+    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 52, ">", true);
+
+    NuttyDisplay_unlockLVGL();
+
+    g_ui.initialized = true;
+    g_ui.selected_index = 0;
+    g_ui.scroll_offset = 0;
+    g_ui.wild_select_active = false;
+    g_ui.wild_color = UNO_COLOR_RED;
+    g_ui.pending_wild_index = 0;
+
+    /* 4. Init client state */
+    uno_client_init_state();
+    g_client.ui_dirty = true;
+
+    /* 5. Start BLE */
 #ifdef CONFIG_BT_ENABLED
     uno_ble_init();
 #else
     strncpy(g_client.last_action, "BT disabled", sizeof(g_client.last_action) - 1);
     g_client.last_action[sizeof(g_client.last_action) - 1] = '\0';
+    g_client.ui_dirty = true;
 #endif
 
+    /* 6. Main loop */
+    ESP_LOGI(TAG, "Entering client loop");
     while (1) {
-        if (uno_btn_back_pressed()) {
-            break;
-        }
+        if (uno_btn_back_pressed()) break;
 
         uno_handle_input();
         uno_update_custom_led();
         uno_custom_led_update();
-
-        if (g_client.ui_dirty) {
-            uno_ui_update();
-        }
-
+        if (g_client.ui_dirty) uno_ui_update();
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
+    ESP_LOGI(TAG, "UNO Client exiting");
     uno_display_clear();
     NuttyApps_launchAppByIndex(0);
 }
