@@ -632,13 +632,30 @@ static void uno_ui_update(void) {
     uno_display_lock();
 
     if (!g_game.game_started) {
-        /* Lobby mode */
-        uno_display_label_set_text(&g_ui.title_label, "UNO Lobby");
+        /* ── Lobby mode ────────────────────────────────────────────── */
+        snprintf(buf, sizeof(buf), "UNO Host Ch:%u", (unsigned)g_game_channel);
+        uno_display_label_set_text(&g_ui.title_label, buf);
+
         snprintf(buf, sizeof(buf), "Bots:%u", (unsigned)g_game.requested_bots);
         uno_display_label_set_text(&g_ui.deck_label, buf);
-        uno_display_label_set_text(&g_ui.log_label, "A=Start");
-        uno_display_label_set_text(&g_ui.players_label, "");
-        uno_display_label_set_text(&g_ui.wild_label, "");
+
+        /* Count connected clients */
+        uint8_t conn = 0;
+        for (uint8_t i = 1; i < UNO_MAX_PLAYERS; i++)
+            if (g_game.players[i].connected) conn++;
+        snprintf(buf, sizeof(buf), "Conn:%u", (unsigned)conn);
+        uno_display_label_set_text(&g_ui.log_label, buf);
+
+        /* Player status line */
+        char pbuf[40]; int po = 0;
+        for (uint8_t i = 1; i < UNO_MAX_PLAYERS; i++) {
+            po += snprintf(pbuf + po, sizeof(pbuf) - po, "P%u:%s ",
+                           (unsigned)i, g_game.players[i].connected ? "OK" : "--");
+        }
+        uno_display_label_set_text(&g_ui.players_label, pbuf);
+
+        uno_display_label_set_text(&g_ui.wild_label, "U/D:Bot  A:Start");
+
         uno_display_card_set(&g_ui.top_card, uno_card_none(), false);
         for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
             uno_display_card_set(&g_ui.hand_cards[i], uno_card_none(), false);
@@ -1205,187 +1222,71 @@ void uno_set_requested_bots(uint8_t count) {
     g_game.requested_bots = count;
 }
 
-/* ── Host lobby — runs inside host so it can access game state ────── */
-static lv_obj_t *s_lobby_bot_lbl;
-static lv_obj_t *s_lobby_conn_lbl;
-static lv_obj_t *s_lobby_plbl[3];
-
-static void host_lobby_ui_draw(void) {
-    lv_obj_t *root = NuttyDisplay_getUserAppArea();
-    if (root == NULL) {
-        ESP_LOGW(TAG, "Lobby draw: display root is NULL, reinit display");
-        uno_display_init();
-        root = NuttyDisplay_getUserAppArea();
-        if (root == NULL) {
-            ESP_LOGE(TAG, "Lobby draw: failed to get display root");
-            return;
-        }
-    }
-    NuttyDisplay_lockLVGL();
-    lv_obj_clean(root);
-    lv_obj_set_style_border_width(root, 0, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(root, LV_OPA_TRANSP, LV_PART_MAIN);
-
-    lv_obj_t *title = lv_label_create(root);
-    lv_label_set_text(title, "UNO Host");
-    lv_obj_set_pos(title, 2, 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_10, LV_PART_MAIN);
-
-    lv_obj_t *ch = lv_label_create(root);
-    char buf[16];
-    snprintf(buf, sizeof(buf), "Ch:%u", (unsigned)g_game_channel);
-    lv_label_set_text(ch, buf);
-    lv_obj_set_pos(ch, 80, 0);
-    lv_obj_set_style_text_font(ch, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    lv_obj_t *sep = lv_obj_create(root);
-    lv_obj_set_size(sep, 124, 1);
-    lv_obj_set_pos(sep, 2, 10);
-    lv_obj_set_style_bg_color(sep, lv_color_white(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
-
-    s_lobby_bot_lbl = lv_label_create(root);
-    snprintf(buf, sizeof(buf), "Bots:%u", (unsigned)g_game.requested_bots);
-    lv_label_set_text(s_lobby_bot_lbl, buf);
-    lv_obj_set_pos(s_lobby_bot_lbl, 4, 14);
-    lv_obj_set_style_text_font(s_lobby_bot_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    s_lobby_conn_lbl = lv_label_create(root);
-    lv_label_set_text(s_lobby_conn_lbl, "Conn:0");
-    lv_obj_set_pos(s_lobby_conn_lbl, 60, 14);
-    lv_obj_set_style_text_font(s_lobby_conn_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    const char *pnames[] = {"P2:", "P3:", "P4:"};
-    for (uint8_t i = 0; i < 3; i++) {
-        s_lobby_plbl[i] = lv_label_create(root);
-        snprintf(buf, sizeof(buf), "%s--", pnames[i]);
-        lv_label_set_text(s_lobby_plbl[i], buf);
-        lv_obj_set_pos(s_lobby_plbl[i], 4, 22 + i * 8);
-        lv_obj_set_style_text_font(s_lobby_plbl[i], &cg_pixel_4x5_mono, LV_PART_MAIN);
-    }
-
-    lv_obj_t *instr = lv_label_create(root);
-    lv_label_set_text(instr, "U/D:Bot  A:Start");
-    lv_obj_set_pos(instr, 4, 52);
-    lv_obj_set_style_text_font(instr, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    NuttyDisplay_unlockLVGL();
-}
-
-static void host_lobby_ui_update(void) {
-    char buf[20];
-    NuttyDisplay_lockLVGL();
-    snprintf(buf, sizeof(buf), "Bots:%u", (unsigned)g_game.requested_bots);
-    lv_label_set_text(s_lobby_bot_lbl, buf);
-
-    uint8_t conn_count = 0;
-    bool conn_slot[3] = {false, false, false};
-    for (uint8_t i = 1; i < UNO_MAX_PLAYERS; i++) {
-        if (g_game.players[i].connected) {
-            conn_count++;
-            if (i >= 1 && i <= 3) conn_slot[i - 1] = true;
-        }
-    }
-    snprintf(buf, sizeof(buf), "Conn:%u", (unsigned)conn_count);
-    lv_label_set_text(s_lobby_conn_lbl, buf);
-
-    for (uint8_t i = 0; i < 3; i++) {
-        snprintf(buf, sizeof(buf), "P%u:%s", (unsigned)(i + 2), conn_slot[i] ? "<OK>" : "--");
-        lv_label_set_text(s_lobby_plbl[i], buf);
-    }
-    NuttyDisplay_unlockLVGL();
-}
-
-/* Returns true if user wants to start, false to go back */
-static bool uno_host_lobby(void) {
-    host_lobby_ui_draw();
-
-    uint32_t tick = 0;
-    while (1) {
-        if (uno_btn_up_pressed()) {
-            if (g_game.requested_bots < 3) {
-                g_game.requested_bots++;
-                host_lobby_ui_update();
-            }
-        }
-        if (uno_btn_down_pressed()) {
-            if (g_game.requested_bots > 0) {
-                g_game.requested_bots--;
-                host_lobby_ui_update();
-            }
-        }
-        if (uno_btn_play_pressed()) {
-            return true;
-        }
-        if (uno_btn_draw_pressed() || uno_btn_back_pressed()) {
-            return false;
-        }
-        tick++;
-        if (tick % 50 == 0) {
-            host_lobby_ui_update();
-        }
-        uno_custom_led_update();
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-}
-
+/* ── Host main ──────────────────────────────────────────────────────
+ * Uses a single UI (g_ui) for both lobby and game screens.
+ * uno_ui_update() shows lobby info when !game_started,
+ * and game info when game_started. No separate lobby draw/init.
+ */
 void uno_host_main(void) {
-    ESP_LOGI(TAG, "Starting UNO Host");
+    ESP_LOGI(TAG, "UNO Host starting");
 
     uno_led_init();
     uno_display_init();
     uno_btn_init();
 
-    g_action_queue = xQueueCreateStatic(UNO_ACTION_QUEUE_LEN, sizeof(uno_msg_action_t), g_action_queue_storage, &g_action_queue_struct);
-
+    g_action_queue = xQueueCreateStatic(UNO_ACTION_QUEUE_LEN, sizeof(uno_msg_action_t),
+                                        g_action_queue_storage, &g_action_queue_struct);
     uno_init_game_state();
 
+    /* Init game UI once — it handles both lobby and game display */
+    uno_ui_init();
+    uno_ui_update();
+
+    /* Start BLE (non-blocking, creates its own task) */
 #ifdef CONFIG_BT_ENABLED
     uno_ble_init();
 #endif
 
-    /* Run lobby — returns false if user pressed back */
-    if (!uno_host_lobby()) {
-        uno_display_clear();
-        NuttyApps_launchAppByIndex(0);
-        return;
+    /* ── Lobby loop ────────────────────────────────────────────────── */
+    while (!g_game.game_started) {
+        if (uno_btn_up_pressed()) {
+            if (g_game.requested_bots < 3) { g_game.requested_bots++; g_ui_dirty = true; }
+        }
+        if (uno_btn_down_pressed()) {
+            if (g_game.requested_bots > 0) { g_game.requested_bots--; g_ui_dirty = true; }
+        }
+        if (uno_btn_play_pressed()) {
+            uno_start_game();
+        }
+        if (uno_btn_back_pressed()) {
+            uno_display_clear();
+            NuttyApps_launchAppByIndex(0);
+            return;
+        }
+        if (g_ui_dirty) uno_ui_update();
+        uno_update_custom_led();
+        uno_custom_led_update();
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-    /* Lobby finished — init game UI and start the game */
-    uno_ui_init();
-    uno_ui_update();
-    uno_start_game();
-
+    /* ── Game loop (UI already initialized, just update) ──────────── */
     while (1) {
-        if (uno_btn_back_pressed()) {
-            break;
-        }
+        if (uno_btn_back_pressed()) break;
 
         uno_handle_local_input();
         uno_process_action_queue();
 
         if (!g_game.game_over) {
-            uno_player_t *current = &g_game.players[g_game.current_player];
-            if (current->is_bot && current->active) {
-                uno_bot_take_turn(g_game.current_player);
-            }
+            uno_player_t *cur = &g_game.players[g_game.current_player];
+            if (cur->is_bot && cur->active) uno_bot_take_turn(g_game.current_player);
         }
 
 #ifdef CONFIG_BT_ENABLED
-        if (g_state_dirty) {
-            g_state_dirty = false;
-            uno_broadcast_state();
-        }
+        if (g_state_dirty) { g_state_dirty = false; uno_broadcast_state(); }
 #endif
-
         uno_update_custom_led();
         uno_custom_led_update();
-
-        if (g_ui_dirty) {
-            uno_ui_update();
-        }
-
+        if (g_ui_dirty) uno_ui_update();
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
