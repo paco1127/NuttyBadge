@@ -651,7 +651,6 @@ void uno_client_main(void) {
     uno_led_init();
     uno_display_init();
     uno_btn_init();
-    NuttyInput_clearButtonHoldState(NUTTYINPUT_BTN_ALL);
 
     uno_client_init_state();
     uno_ui_init();

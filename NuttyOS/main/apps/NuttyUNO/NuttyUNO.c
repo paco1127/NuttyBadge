@@ -160,7 +160,6 @@ static void uno_menu_main(void) {
     uno_led_init();
     uno_display_init();
     uno_btn_init();
-    NuttyInput_clearButtonHoldState(NUTTYINPUT_BTN_ALL);
 
     uint8_t sel = 0;  /* 0=Host, 1=Join */
     menu_draw();

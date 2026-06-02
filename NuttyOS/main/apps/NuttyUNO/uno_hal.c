@@ -192,7 +192,22 @@ void uno_display_obj_set_hidden(void *obj, bool hidden) {
 static uint16_t s_prev_btn = 0;
 
 void uno_btn_init(void) {
-    /* Capture current debounced state so held buttons don't trigger */
+    /* Clear NuttyInput held state first so it doesn't bleed through */
+    NuttyInput_clearButtonHoldState(NUTTYINPUT_BTN_ALL);
+
+    /* Wait until ALL buttons are fully released.
+     * This is critical when transitioning from a previous screen
+     * where a button (e.g. A) was pressed to trigger the transition.
+     * Without this, the held button would be captured in s_prev_btn
+     * and its rising edge would never fire in the new context. */
+    while (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_ALL)) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    /* Small extra delay to let the debounced state settle */
+    vTaskDelay(pdMS_TO_TICKS(20));
+
+    /* Now capture the (released) state so held buttons don't trigger false edges */
     s_prev_btn = 0;
     if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_UP))    s_prev_btn |= NUTTYINPUT_BTN_UP;
     if (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_DOWN))  s_prev_btn |= NUTTYINPUT_BTN_DOWN;

@@ -1319,7 +1319,6 @@ void uno_host_main(void) {
     uno_led_init();
     uno_display_init();
     uno_btn_init();
-    NuttyInput_clearButtonHoldState(NUTTYINPUT_BTN_ALL);
 
     g_action_queue = xQueueCreateStatic(UNO_ACTION_QUEUE_LEN, sizeof(uno_msg_action_t), g_action_queue_storage, &g_action_queue_struct);
 
