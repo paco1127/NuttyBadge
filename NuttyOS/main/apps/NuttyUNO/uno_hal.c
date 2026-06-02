@@ -192,15 +192,26 @@ void uno_display_obj_set_hidden(void *obj, bool hidden) {
 static uint16_t s_prev_btn = 0;
 
 void uno_btn_init(void) {
-    /* Clear NuttyInput held state first so it doesn't bleed through */
-    NuttyInput_clearButtonHoldState(NUTTYINPUT_BTN_ALL);
+    /* Clear NuttyInput held state first so it doesn't bleed through.
+     * Only clear the main face buttons (not USRDEF which may be unused/floating). */
+    NuttyInput_clearButtonHoldState(
+        NUTTYINPUT_BTN_UP | NUTTYINPUT_BTN_DOWN | NUTTYINPUT_BTN_LEFT |
+        NUTTYINPUT_BTN_RIGHT | NUTTYINPUT_BTN_A | NUTTYINPUT_BTN_B |
+        NUTTYINPUT_BTN_SELECT | NUTTYINPUT_BTN_START);
 
-    /* Wait until ALL buttons are fully released.
+    /* Wait until all main buttons are fully released.
      * This is critical when transitioning from a previous screen
      * where a button (e.g. A) was pressed to trigger the transition.
      * Without this, the held button would be captured in s_prev_btn
-     * and its rising edge would never fire in the new context. */
-    while (NuttyInput_isOneOfTheButtonsCurrentlyPressed(NUTTYINPUT_BTN_ALL)) {
+     * and its rising edge would never fire in the new context.
+     *
+     * We only check the main face buttons (mask 0x00FF) to avoid
+     * getting stuck on unused buttons like USRDEF that may float. */
+    uint16_t main_btns = NUTTYINPUT_BTN_UP | NUTTYINPUT_BTN_DOWN |
+                         NUTTYINPUT_BTN_LEFT | NUTTYINPUT_BTN_RIGHT |
+                         NUTTYINPUT_BTN_A | NUTTYINPUT_BTN_B |
+                         NUTTYINPUT_BTN_SELECT | NUTTYINPUT_BTN_START;
+    while (NuttyInput_isOneOfTheButtonsCurrentlyPressed(main_btns)) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 

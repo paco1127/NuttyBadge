@@ -455,7 +455,10 @@ static void uno_start_scan(void) {
     scan_params.window = BLE_GAP_SCAN_WIN_MS(50);
     scan_params.filter_duplicates = 1;
 
-    ble_gap_disc(g_own_addr_type, BLE_HS_FOREVER, &scan_params, uno_gap_event, NULL);
+    int rc = ble_gap_disc(g_own_addr_type, BLE_HS_FOREVER, &scan_params, uno_gap_event, NULL);
+    if (rc != 0 && rc != BLE_HS_EALREADY) {
+        ESP_LOGW(TAG, "ble_gap_disc failed: %d", rc);
+    }
 }
 
 static int uno_gap_event(struct ble_gap_event *event, void *arg) {
@@ -522,7 +525,11 @@ static int uno_gap_event(struct ble_gap_event *event, void *arg) {
 }
 
 static void uno_ble_on_sync(void) {
-    ble_hs_id_infer_auto(0, &g_own_addr_type);
+    int rc = ble_hs_id_infer_auto(0, &g_own_addr_type);
+    if (rc != 0) {
+        ESP_LOGW(TAG, "ble_hs_id_infer_auto failed: %d", rc);
+        g_own_addr_type = BLE_OWN_ADDR_PUBLIC;
+    }
     uno_start_scan();
 }
 

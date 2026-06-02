@@ -1140,11 +1140,18 @@ static void uno_ble_advertise(void) {
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
 
-    ble_gap_adv_start(g_own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, uno_gap_event, NULL);
+    int adv_rc = ble_gap_adv_start(g_own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, uno_gap_event, NULL);
+    if (adv_rc != 0 && adv_rc != BLE_HS_EALREADY) {
+        ESP_LOGW(TAG, "ble_gap_adv_start failed: %d", adv_rc);
+    }
 }
 
 static void uno_ble_on_sync(void) {
-    ble_hs_id_infer_auto(0, &g_own_addr_type);
+    int rc = ble_hs_id_infer_auto(0, &g_own_addr_type);
+    if (rc != 0) {
+        ESP_LOGW(TAG, "ble_hs_id_infer_auto failed: %d", rc);
+        g_own_addr_type = BLE_OWN_ADDR_PUBLIC;
+    }
     uno_ble_advertise();
 }
 
@@ -1155,6 +1162,7 @@ static void uno_ble_host_task(void *param) {
 }
 
 static void uno_ble_init(void) {
+    ESP_LOGI(TAG, "uno_ble_init: starting");
     esp_err_t nimble_ret = nimble_port_init();
     if (nimble_ret == ESP_ERR_INVALID_STATE) {
         ESP_LOGI(TAG, "NimBLE already initialized, re-advertising...");
@@ -1166,9 +1174,11 @@ static void uno_ble_init(void) {
         ESP_LOGE(TAG, "Failed to init NimBLE: %s", esp_err_to_name(nimble_ret));
         return;
     }
+    ESP_LOGI(TAG, "uno_ble_init: nimble_port_init OK");
 
     ble_svc_gap_init();
     ble_svc_gatt_init();
+    ESP_LOGI(TAG, "uno_ble_init: gap+gatt init OK");
 
     uno_ble_uuid128_init(&g_uno_svc_uuid, 0x01);
     uno_ble_uuid128_init(&g_uno_state_uuid, 0x02);
@@ -1183,9 +1193,11 @@ static void uno_ble_init(void) {
     if (rc != 0) {
         ESP_LOGW(TAG, "GATT start failed: %d", rc);
     }
+    ESP_LOGI(TAG, "uno_ble_init: GATT services OK");
 
     ble_hs_cfg.sync_cb = uno_ble_on_sync;
     nimble_port_freertos_init(uno_ble_host_task);
+    ESP_LOGI(TAG, "uno_ble_init: host task started");
 }
 #endif
 
@@ -1201,8 +1213,13 @@ static lv_obj_t *s_lobby_plbl[3];
 static void host_lobby_ui_draw(void) {
     lv_obj_t *root = NuttyDisplay_getUserAppArea();
     if (root == NULL) {
-        ESP_LOGW(TAG, "Lobby draw: display root is NULL");
-        return;
+        ESP_LOGW(TAG, "Lobby draw: display root is NULL, reinit display");
+        uno_display_init();
+        root = NuttyDisplay_getUserAppArea();
+        if (root == NULL) {
+            ESP_LOGE(TAG, "Lobby draw: failed to get display root");
+            return;
+        }
     }
     NuttyDisplay_lockLVGL();
     lv_obj_clean(root);

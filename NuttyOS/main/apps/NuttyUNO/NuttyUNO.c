@@ -31,6 +31,10 @@ static lv_obj_t *menu_ch_lbl;
 
 static void menu_draw(void) {
     lv_obj_t *root = NuttyDisplay_getUserAppArea();
+    if (root == NULL) {
+        ESP_LOGW(TAG, "Menu draw: display root is NULL");
+        return;
+    }
     NuttyDisplay_lockLVGL();
     lv_obj_clean(root);
     lv_obj_set_style_border_width(root, 0, LV_PART_MAIN);
@@ -91,6 +95,10 @@ static lv_obj_t *client_host_lbl;
 
 static void client_connect_draw(void) {
     lv_obj_t *root = NuttyDisplay_getUserAppArea();
+    if (root == NULL) {
+        ESP_LOGW(TAG, "Client connect draw: display root is NULL");
+        return;
+    }
     NuttyDisplay_lockLVGL();
     lv_obj_clean(root);
     lv_obj_set_style_border_width(root, 0, LV_PART_MAIN);
