@@ -46,7 +46,7 @@ static void menu_draw(void) {
     lv_obj_set_pos(title, 2, 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_10, LV_PART_MAIN);
 
-    /* Channel line — adjustable with LEFT/RIGHT */
+    /* Channel */
     menu_ch_lbl = lv_label_create(root);
     char chbuf[16];
     snprintf(chbuf, sizeof(chbuf), "Ch:%u", (unsigned)g_game_channel);
@@ -54,7 +54,7 @@ static void menu_draw(void) {
     lv_obj_set_pos(menu_ch_lbl, 70, 0);
     lv_obj_set_style_text_font(menu_ch_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
-    /* Thin separator */
+    /* Separator */
     lv_obj_t *sep = lv_obj_create(root);
     lv_obj_set_size(sep, 124, 1);
     lv_obj_set_pos(sep, 2, 10);
@@ -62,22 +62,37 @@ static void menu_draw(void) {
     lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
 
-    /* Host option */
+    /* Host / Join options */
     menu_host_lbl = lv_label_create(root);
     lv_label_set_text(menu_host_lbl, "> Host");
     lv_obj_set_pos(menu_host_lbl, 4, 14);
     lv_obj_set_style_text_font(menu_host_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
-    /* Join option */
     menu_join_lbl = lv_label_create(root);
     lv_label_set_text(menu_join_lbl, "  Join");
     lv_obj_set_pos(menu_join_lbl, 4, 22);
     lv_obj_set_style_text_font(menu_join_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
-    /* Instructions */
+    /* Card legend / tutorial */
+    lv_obj_t *leg1 = lv_label_create(root);
+    lv_label_set_text(leg1, "Cards:R0G7B2Y9");
+    lv_obj_set_pos(leg1, 4, 32);
+    lv_obj_set_style_text_font(leg1, &cg_pixel_4x5_mono, LV_PART_MAIN);
+
+    lv_obj_t *leg2 = lv_label_create(root);
+    lv_label_set_text(leg2, "S=Skip R=Rev +2=D2");
+    lv_obj_set_pos(leg2, 4, 40);
+    lv_obj_set_style_text_font(leg2, &cg_pixel_4x5_mono, LV_PART_MAIN);
+
+    lv_obj_t *leg3 = lv_label_create(root);
+    lv_label_set_text(leg3, "W=Wild +4=W+4");
+    lv_obj_set_pos(leg3, 4, 48);
+    lv_obj_set_style_text_font(leg3, &cg_pixel_4x5_mono, LV_PART_MAIN);
+
+    /* Button help */
     lv_obj_t *instr = lv_label_create(root);
-    lv_label_set_text(instr, "L/R:Ch  U/D:Sel  A:OK");
-    lv_obj_set_pos(instr, 4, 52);
+    lv_label_set_text(instr, "L/R:Ch U/D:Sel A:OK");
+    lv_obj_set_pos(instr, 4, 56);
     lv_obj_set_style_text_font(instr, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
     NuttyDisplay_unlockLVGL();

@@ -624,42 +624,38 @@ static void uno_ui_init(void) {
 }
 
 static void uno_ui_update(void) {
-    if (!g_ui.initialized) {
-        return;
-    }
+    if (!g_ui.initialized) return;
 
-    char buf[20];
+    char buf[24];
     uno_display_lock();
 
+    /* ── Lobby mode ────────────────────────────────────────────────── */
     if (!g_game.game_started) {
-        /* ── Lobby mode ────────────────────────────────────────────── */
         snprintf(buf, sizeof(buf), "UNO Host Ch:%u", (unsigned)g_game_channel);
         uno_display_label_set_text(&g_ui.title_label, buf);
 
         snprintf(buf, sizeof(buf), "Bots:%u", (unsigned)g_game.requested_bots);
         uno_display_label_set_text(&g_ui.deck_label, buf);
 
-        /* Count connected clients */
         uint8_t conn = 0;
         for (uint8_t i = 1; i < UNO_MAX_PLAYERS; i++)
             if (g_game.players[i].connected) conn++;
         snprintf(buf, sizeof(buf), "Conn:%u", (unsigned)conn);
         uno_display_label_set_text(&g_ui.log_label, buf);
 
-        /* Player status line */
-        char pbuf[40]; int po = 0;
+        /* Player status: P2:OK P3:-- P4:-- */
+        int po = 0;
         for (uint8_t i = 1; i < UNO_MAX_PLAYERS; i++) {
-            po += snprintf(pbuf + po, sizeof(pbuf) - po, "P%u:%s ",
+            po += snprintf(buf + po, sizeof(buf) - po, "P%u:%s ",
                            (unsigned)i, g_game.players[i].connected ? "OK" : "--");
         }
-        uno_display_label_set_text(&g_ui.players_label, pbuf);
+        uno_display_label_set_text(&g_ui.players_label, buf);
 
-        uno_display_label_set_text(&g_ui.wild_label, "U/D:Bot  A:Start");
+        uno_display_label_set_text(&g_ui.wild_label, "U/D:Bot A:Start");
 
         uno_display_card_set(&g_ui.top_card, uno_card_none(), false);
-        for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
+        for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++)
             uno_display_card_set(&g_ui.hand_cards[i], uno_card_none(), false);
-        }
         uno_display_obj_set_hidden(g_ui.left_arrow.obj, true);
         uno_display_obj_set_hidden(g_ui.right_arrow.obj, true);
         uno_display_unlock();
@@ -668,63 +664,60 @@ static void uno_ui_update(void) {
         return;
     }
 
-    /* Title: turn indicator */
+    /* ── Game mode ─────────────────────────────────────────────────── */
+    /* Title: whose turn */
     uint8_t cp = g_game.current_player;
     if (g_game.game_over) {
-        snprintf(buf, sizeof(buf), "W:P%u", (unsigned)cp);
+        snprintf(buf, sizeof(buf), "WINNER:P%u!", (unsigned)cp);
+    } else if (cp == 0) {
+        snprintf(buf, sizeof(buf), ">> My Turn");
     } else {
-        snprintf(buf, sizeof(buf), "%sP%u", cp == 0 ? ">" : " ", (unsigned)cp);
+        snprintf(buf, sizeof(buf), "P%u's Turn", (unsigned)cp);
     }
     uno_display_label_set_text(&g_ui.title_label, buf);
 
     /* Deck count */
-    snprintf(buf, sizeof(buf), "D:%u", (unsigned)g_game.deck_count);
+    snprintf(buf, sizeof(buf), "Deck:%u", (unsigned)g_game.deck_count);
     uno_display_label_set_text(&g_ui.deck_label, buf);
 
-    /* Compact player counts: P0:5 P1:3 P2:7 */
-    char pbuf[40];
+    /* Player hand sizes: P0:5 P1:3 P2:7 P3:2 */
     int po = 0;
     for (uint8_t i = 0; i < UNO_MAX_PLAYERS; i++) {
         if (!g_game.players[i].active) continue;
-        po += snprintf(pbuf + po, sizeof(pbuf) - po, "P%u:%u ", (unsigned)i, (unsigned)g_game.players[i].hand_count);
+        po += snprintf(buf + po, sizeof(buf) - po, "P%u:%u ",
+                       (unsigned)i, (unsigned)g_game.players[i].hand_count);
     }
-    uno_display_label_set_text(&g_ui.players_label, pbuf);
+    uno_display_label_set_text(&g_ui.players_label, buf);
 
-    /* Last action — truncated to fit tiny display */
-    strncpy(buf, g_game.last_action, sizeof(buf) - 1);
-    buf[sizeof(buf) - 1] = '\0';
-    uno_display_label_set_text(&g_ui.log_label, buf);
-
-    /* Wild selection */
+    /* Bottom row: action log or wild select or button hint */
     if (g_ui.wild_select_active) {
         const char *cn = "R";
-        if (g_ui.wild_color == UNO_COLOR_GREEN) cn = "G";
-        if (g_ui.wild_color == UNO_COLOR_BLUE) cn = "B";
-        if (g_ui.wild_color == UNO_COLOR_YELLOW) cn = "Y";
-        snprintf(buf, sizeof(buf), "Color:%s", cn);
+        if (g_ui.wild_color == 1) cn = "G";
+        else if (g_ui.wild_color == 2) cn = "B";
+        else if (g_ui.wild_color == 3) cn = "Y";
+        snprintf(buf, sizeof(buf), "Color:%s A=OK B=Can", cn);
         uno_display_label_set_text(&g_ui.wild_label, buf);
+    } else if (cp == 0) {
+        uno_display_label_set_text(&g_ui.wild_label, "<>:Card A:Play B:Draw");
     } else {
-        uno_display_label_set_text(&g_ui.wild_label, "");
+        strncpy(buf, g_game.last_action, sizeof(buf) - 1); buf[sizeof(buf) - 1] = '\0';
+        uno_display_label_set_text(&g_ui.wild_label, buf);
     }
 
-    /* Top card */
+    /* Top card — large display */
     card_t top = uno_top_card();
     uno_display_card_set(&g_ui.top_card, top, false);
 
-    /* Host hand */
+    /* Host hand — numbered cards */
     uno_player_t *host = &g_game.players[0];
     if (host->hand_count == 0) {
-        g_ui.selected_index = 0;
-        g_ui.scroll_offset = 0;
+        g_ui.selected_index = 0; g_ui.scroll_offset = 0;
     } else if (g_ui.selected_index >= host->hand_count) {
         g_ui.selected_index = (uint8_t)(host->hand_count - 1);
     }
-    if (g_ui.selected_index < g_ui.scroll_offset) {
-        g_ui.scroll_offset = g_ui.selected_index;
-    }
-    if (g_ui.selected_index >= (uint8_t)(g_ui.scroll_offset + UNO_HAND_VISIBLE)) {
+    if (g_ui.selected_index < g_ui.scroll_offset) g_ui.scroll_offset = g_ui.selected_index;
+    if (g_ui.selected_index >= g_ui.scroll_offset + UNO_HAND_VISIBLE)
         g_ui.scroll_offset = (uint8_t)(g_ui.selected_index - (UNO_HAND_VISIBLE - 1));
-    }
 
     for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
         uint8_t idx = (uint8_t)(g_ui.scroll_offset + i);
@@ -734,17 +727,17 @@ static void uno_ui_update(void) {
             uno_display_card_set(&g_ui.hand_cards[i], uno_card_none(), false);
         }
     }
-
     uno_display_obj_set_hidden(g_ui.left_arrow.obj, g_ui.scroll_offset == 0);
-    uno_display_obj_set_hidden(g_ui.right_arrow.obj, (g_ui.scroll_offset + UNO_HAND_VISIBLE) >= host->hand_count);
+    uno_display_obj_set_hidden(g_ui.right_arrow.obj,
+        (g_ui.scroll_offset + UNO_HAND_VISIBLE) >= host->hand_count);
 
     uno_display_unlock();
 
-    if (host->hand_count > 0) {
+    /* LED: selected card color */
+    if (host->hand_count > 0)
         led_set_selected_card(host->hand[g_ui.selected_index]);
-    } else {
+    else
         led_set_selected_card(uno_card_none());
-    }
 
     g_ui_dirty = false;
 }
@@ -1249,31 +1242,39 @@ void uno_host_main(void) {
     lv_obj_set_style_border_width(g_ui.root, 0, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(g_ui.root, LV_OPA_TRANSP, LV_PART_MAIN);
 
-    /* Title row */
+    /* Row 0: Title (e.g. "UNO Host Ch:1" or ">P0 Turn") */
     uno_display_label_create(&g_ui.title_label, g_ui.root, 2, 0, "UNO Host", false);
+    /* Row 0 right: Deck/Bots count */
     uno_display_label_create(&g_ui.deck_label, g_ui.root, 80, 0, "Bots:1", false);
-    /* Separator */
+
+    /* Separator line at y=10 */
     lv_obj_t *sep = lv_obj_create(g_ui.root);
     lv_obj_set_size(sep, 124, 1);
     lv_obj_set_pos(sep, 2, 10);
     lv_obj_set_style_bg_color(sep, lv_color_white(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
-    /* Status lines */
+
+    /* Row 1 (y=14): Connection / player status */
     uno_display_label_create(&g_ui.log_label, g_ui.root, 4, 14, "Conn:0", true);
-    uno_display_label_create(&g_ui.players_label, g_ui.root, 4, 22, "P2:-- P3:-- P4:--", true);
-    uno_display_label_create(&g_ui.wild_label, g_ui.root, 4, 30, "U/D:Bot  A:Start", true);
-    /* Top card icon */
-    uno_display_card_create(&g_ui.top_card, g_ui.root, 2, 38, 12, 10);
-    /* Hand cards */
-    int cx = 20;
+    /* Row 2 (y=22): Player hand sizes */
+    uno_display_label_create(&g_ui.players_label, g_ui.root, 4, 22, "P0:0 P1:0 P2:0 P3:0", true);
+    /* Row 3 (y=30): Instructions / wild select / action log */
+    uno_display_label_create(&g_ui.wild_label, g_ui.root, 4, 30, "U/D:Bot A:Start", true);
+
+    /* Top card display: larger 24x18 at left */
+    uno_display_card_create(&g_ui.top_card, g_ui.root, 2, 38, 24, 18);
+
+    /* Hand cards: numbered 1-6, small 10x14, to right of top card */
+    int cx = 28;
     for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
-        uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, cx, 38, 8, 12);
+        uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, cx, 38, 10, 14);
         cx += 10;
     }
-    /* Scroll arrows */
-    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 52, "<", true);
-    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 52, ">", true);
+
+    /* Scroll arrows at bottom */
+    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 56, "<", true);
+    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 56, ">", true);
 
     NuttyDisplay_unlockLVGL();
 
