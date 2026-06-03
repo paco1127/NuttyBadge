@@ -80,22 +80,13 @@ void uno_display_card_create(uno_display_card_t *card, void *parent, int x, int 
 }
 
 static void uno_card_short_text(card_t card, char *out, size_t out_len) {
-    const char *color = "W";
-    char value[4] = "?";
-    switch (card.color) {
-        case UNO_COLOR_RED:    color = "R"; break;
-        case UNO_COLOR_GREEN:  color = "G"; break;
-        case UNO_COLOR_BLUE:   color = "B"; break;
-        case UNO_COLOR_YELLOW: color = "Y"; break;
-        default:               color = "W"; break;
-    }
-    if (card.value <= 9)            snprintf(value, sizeof(value), "%u", (unsigned)card.value);
-    else if (card.value == 10)      snprintf(value, sizeof(value), "S");
-    else if (card.value == 11)      snprintf(value, sizeof(value), "R");
-    else if (card.value == 12)      snprintf(value, sizeof(value), "+2");
-    else if (card.value == 13)      snprintf(value, sizeof(value), "W");
-    else if (card.value == 14)      snprintf(value, sizeof(value), "+4");
-    snprintf(out, out_len, "%s%s", color, value);
+    if (card.value <= 9)            snprintf(out, out_len, "%u", (unsigned)card.value);
+    else if (card.value == 10)      snprintf(out, out_len, "-");   /* Skip */
+    else if (card.value == 11)      snprintf(out, out_len, "R");   /* Reverse */
+    else if (card.value == 12)      snprintf(out, out_len, "+2");  /* Draw 2 */
+    else if (card.value == 13)      snprintf(out, out_len, "W");   /* Wild */
+    else if (card.value == 14)      snprintf(out, out_len, "WW");  /* Wild Draw 4 */
+    else                             snprintf(out, out_len, "?");
 }
 
 void uno_display_card_set(uno_display_card_t *card, card_t value, bool selected) {

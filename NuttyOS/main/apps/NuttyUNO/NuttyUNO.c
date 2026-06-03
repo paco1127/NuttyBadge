@@ -22,12 +22,88 @@ static const char *TAG = "NuttyUNO";
 uint8_t g_game_channel = UNO_GAME_CHANNEL;
 
 /* ═══════════════════════════════════════════════════════════════════
- *  MAIN MENU — Channel select + Host / Join
+ *  TUTORIAL — explanation of UNO rules & controls
+ * ═══════════════════════════════════════════════════════════════════ */
+
+#define TUTORIAL_LINES 20
+
+static const char *tutorial_text[TUTORIAL_LINES] = {
+    "=== UNO TUTORIAL ===",
+    "",
+    "GOAL: Empty your hand",
+    "",
+    "CARD DISPLAY:",
+    " 0-9 = Number cards",
+    "  -  = Skip",
+    "  R  = Reverse",
+    " +2  = Draw Two",
+    "  W  = Wild",
+    " WW  = Wild Draw 4",
+    "",
+    "LED = Card color",
+    "R G B Y shown on RGB",
+    "",
+    "CONTROLS:",
+    " </> = Scroll hand",
+    "  A  = Play card",
+    "  B  = Draw card",
+    "START= Back / Leave",
+    "",
+    "PLAY RULES:",
+    " Match color OR number",
+    " Wild plays anytime",
+    " +2/WW stacks (house)",
+    "",
+    "Press START to go back"
+};
+
+static void tutorial_draw(void) {
+    lv_obj_t *root = NuttyDisplay_getUserAppArea();
+    if (root == NULL) return;
+    NuttyDisplay_lockLVGL();
+    lv_obj_clean(root);
+    lv_obj_set_style_border_width(root, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(root, LV_OPA_TRANSP, LV_PART_MAIN);
+
+    for (int i = 0; i < TUTORIAL_LINES; i++) {
+        lv_obj_t *lbl = lv_label_create(root);
+        lv_label_set_text(lbl, tutorial_text[i]);
+        lv_obj_set_pos(lbl, 2, i * 5);
+        lv_obj_set_style_text_font(lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
+    }
+    NuttyDisplay_unlockLVGL();
+}
+
+static void tutorial_main(void) {
+    ESP_LOGI(TAG, "Starting UNO Tutorial");
+    uno_btn_init();
+    tutorial_draw();
+
+    while (1) {
+        if (uno_btn_back_pressed()) break;
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+
+    uno_display_clear();
+    NuttyApps_launchAppByIndex(0);
+}
+
+NuttyAppDefinition NuttyUNOTutorial = {
+    .appName = "UNO Tutorial",
+    .appMainEntry = tutorial_main,
+    .appHidden = true
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  MAIN MENU — Channel select + Host / Join / Tutorial
  * ═══════════════════════════════════════════════════════════════════ */
 
 static lv_obj_t *menu_host_lbl;
 static lv_obj_t *menu_join_lbl;
+static lv_obj_t *menu_tut_lbl;
 static lv_obj_t *menu_ch_lbl;
+
+typedef enum { MENU_HOST, MENU_JOIN, MENU_TUTORIAL, MENU_COUNT } menu_sel_t;
 
 static void menu_draw(void) {
     lv_obj_t *root = NuttyDisplay_getUserAppArea();
@@ -62,7 +138,7 @@ static void menu_draw(void) {
     lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
 
-    /* Host / Join options */
+    /* Menu options */
     menu_host_lbl = lv_label_create(root);
     lv_label_set_text(menu_host_lbl, "> Host");
     lv_obj_set_pos(menu_host_lbl, 4, 14);
@@ -73,28 +149,25 @@ static void menu_draw(void) {
     lv_obj_set_pos(menu_join_lbl, 4, 22);
     lv_obj_set_style_text_font(menu_join_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
-    /* Card legend / tutorial */
-    lv_obj_t *leg1 = lv_label_create(root);
-    lv_label_set_text(leg1, "Cards:R0G7B2Y9");
-    lv_obj_set_pos(leg1, 4, 32);
-    lv_obj_set_style_text_font(leg1, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    lv_obj_t *leg2 = lv_label_create(root);
-    lv_label_set_text(leg2, "S=Skip R=Rev +2=D2");
-    lv_obj_set_pos(leg2, 4, 40);
-    lv_obj_set_style_text_font(leg2, &cg_pixel_4x5_mono, LV_PART_MAIN);
-
-    lv_obj_t *leg3 = lv_label_create(root);
-    lv_label_set_text(leg3, "W=Wild +4=W+4");
-    lv_obj_set_pos(leg3, 4, 48);
-    lv_obj_set_style_text_font(leg3, &cg_pixel_4x5_mono, LV_PART_MAIN);
+    menu_tut_lbl = lv_label_create(root);
+    lv_label_set_text(menu_tut_lbl, "  Tutorial");
+    lv_obj_set_pos(menu_tut_lbl, 4, 30);
+    lv_obj_set_style_text_font(menu_tut_lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
     /* Button help */
     lv_obj_t *instr = lv_label_create(root);
     lv_label_set_text(instr, "L/R:Ch U/D:Sel A:OK");
-    lv_obj_set_pos(instr, 4, 56);
+    lv_obj_set_pos(instr, 4, 52);
     lv_obj_set_style_text_font(instr, &cg_pixel_4x5_mono, LV_PART_MAIN);
 
+    NuttyDisplay_unlockLVGL();
+}
+
+static void menu_update_selection(menu_sel_t sel) {
+    NuttyDisplay_lockLVGL();
+    lv_label_set_text(menu_host_lbl, (sel == MENU_HOST)     ? "> Host"     : "  Host");
+    lv_label_set_text(menu_join_lbl, (sel == MENU_JOIN)     ? "> Join"     : "  Join");
+    lv_label_set_text(menu_tut_lbl,  (sel == MENU_TUTORIAL) ? "> Tutorial" : "  Tutorial");
     NuttyDisplay_unlockLVGL();
 }
 
@@ -184,7 +257,7 @@ static void uno_menu_main(void) {
     uno_display_init();
     uno_btn_init();
 
-    uint8_t sel = 0;  /* 0=Host, 1=Join */
+    menu_sel_t sel = MENU_HOST;
     menu_draw();
 
     bool in_menu = true;
@@ -212,29 +285,23 @@ static void uno_menu_main(void) {
         if (uno_btn_up_pressed()) {
             if (sel > 0) {
                 sel--;
-                NuttyDisplay_lockLVGL();
-                lv_label_set_text(menu_host_lbl, "> Host");
-                lv_label_set_text(menu_join_lbl, "  Join");
-                NuttyDisplay_unlockLVGL();
+                menu_update_selection(sel);
             }
         }
         if (uno_btn_down_pressed()) {
-            if (sel < 1) {
+            if (sel < MENU_COUNT - 1) {
                 sel++;
-                NuttyDisplay_lockLVGL();
-                lv_label_set_text(menu_host_lbl, "  Host");
-                lv_label_set_text(menu_join_lbl, "> Join");
-                NuttyDisplay_unlockLVGL();
+                menu_update_selection(sel);
             }
         }
         if (uno_btn_play_pressed()) {
-            if (sel == 0) {
+            if (sel == MENU_HOST) {
                 /* ── HOST path ── */
                 uno_set_requested_bots(1);
                 in_menu = false;
                 uno_host_main();
                 return;
-            } else {
+            } else if (sel == MENU_JOIN) {
                 /* ── CLIENT path ── */
                 g_cstate = CSTATE_IDLE;
                 client_connect_draw();
@@ -270,6 +337,11 @@ static void uno_menu_main(void) {
                     uno_custom_led_update();
                     vTaskDelay(pdMS_TO_TICKS(10));
                 }
+            } else if (sel == MENU_TUTORIAL) {
+                /* ── TUTORIAL path ── */
+                in_menu = false;
+                tutorial_main();
+                return;
             }
         }
         if (uno_btn_back_pressed()) {
