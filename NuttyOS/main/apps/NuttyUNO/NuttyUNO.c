@@ -25,7 +25,7 @@ uint8_t g_game_channel = UNO_GAME_CHANNEL;
  *  TUTORIAL — explanation of UNO rules & controls
  * ═══════════════════════════════════════════════════════════════════ */
 
-#define TUTORIAL_LINES 32
+#define TUTORIAL_LINES 34
 
 static const char *tutorial_text[TUTORIAL_LINES] = {
     "=== NUTTY UNO ===",

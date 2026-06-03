@@ -106,50 +106,6 @@ static void uno_client_init_state(void) {
 
 /* uno_build_players_label removed — compact format done inline in ui_update */
 
-static void uno_ui_init(void) {
-    uno_display_init();
-    g_ui.root = uno_display_get_root();
-
-    uno_display_lock();
-    uno_display_clear();
-
-    /* Row 0: Title + deck count */
-    uno_display_label_create(&g_ui.title_label, g_ui.root, 2, 0, "UNO", false);
-    uno_display_label_create(&g_ui.deck_label, g_ui.root, 90, 0, "D:0", false);
-
-    /* Top card: 20x14 at y=10 */
-    uno_display_card_create(&g_ui.top_card, g_ui.root, 2, 10, 20, 14);
-
-    /* Status line (action log / turn info) */
-    uno_display_label_create(&g_ui.log_label, g_ui.root, 26, 14, "", true);
-
-    /* Player hand sizes */
-    uno_display_label_create(&g_ui.players_label, g_ui.root, 2, 22, "", true);
-
-    /* Controls / wild select / connection info */
-    uno_display_label_create(&g_ui.wild_label, g_ui.root, 2, 30, "", true);
-
-    /* Hand cards: 6 visible, 18x12 each, at y=36 */
-    int card_x = 2;
-    for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
-        uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, card_x, 36, 18, 12);
-        card_x += 20;
-    }
-
-    /* Scroll arrows at bottom */
-    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 52, "<", true);
-    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 52, ">", true);
-
-    uno_display_unlock();
-
-    g_ui.initialized = true;
-    g_ui.selected_index = 0;
-    g_ui.scroll_offset = 0;
-    g_ui.wild_select_active = false;
-    g_ui.wild_color = UNO_COLOR_RED;
-    g_ui.pending_wild_index = 0;
-}
-
 static void uno_ui_update(void) {
     if (!g_ui.initialized) {
         return;
@@ -203,7 +159,11 @@ static void uno_ui_update(void) {
         /* Find the winner (player with 0 cards) */
         for (uint8_t w = 0; w < UNO_MAX_PLAYERS; w++) {
             if (w < g_client.player_count && g_client.hand_sizes[w] == 0) {
-                snprintf(buf, me == w ? "YOU WIN!" : "P%u Wins!", (unsigned)w);
+                if (me == w) {
+                    snprintf(buf, sizeof(buf), "YOU WIN!");
+                } else {
+                    snprintf(buf, sizeof(buf), "P%u Wins!", (unsigned)w);
+                }
                 break;
             }
         }

@@ -583,49 +583,6 @@ static void uno_start_game(void) {
 
 /* uno_build_players_label removed — compact format done inline in ui_update */
 
-static void uno_ui_init(void) {
-    uno_display_init();
-    g_ui.root = uno_display_get_root();
-
-    uno_display_lock();
-    uno_display_clear();
-
-    /* Row 0: Title + deck count */
-    uno_display_label_create(&g_ui.title_label, g_ui.root, 2, 0, "UNO", false);
-    uno_display_label_create(&g_ui.deck_label, g_ui.root, 90, 0, "D:0", false);
-
-    /* Top card: 20x12 at y=10 */
-    uno_display_card_create(&g_ui.top_card, g_ui.root, 2, 10, 20, 12);
-
-    /* Status line (action log / turn info) */
-    uno_display_label_create(&g_ui.log_label, g_ui.root, 26, 12, "", true);
-
-    /* Player hand sizes: P0:5 P1:3 P2:7 */
-    uno_display_label_create(&g_ui.players_label, g_ui.root, 2, 20, "", true);
-
-    /* Controls / wild select / action hint line */
-    uno_display_label_create(&g_ui.wild_label, g_ui.root, 2, 28, "", true);
-
-    /* Hand cards: 6 visible, 18x12 each, starting at y=34 */
-    int card_x = 2;
-    for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++) {
-        uno_display_card_create(&g_ui.hand_cards[i], g_ui.root, card_x, 34, 18, 12);
-        card_x += 20;
-    }
-
-    /* Scroll arrows at bottom row */
-    uno_display_label_create(&g_ui.left_arrow, g_ui.root, 2, 48, "<", true);
-    uno_display_label_create(&g_ui.right_arrow, g_ui.root, 120, 48, ">", true);
-
-    uno_display_unlock();
-
-    g_ui.initialized = true;
-    g_ui.selected_index = 0;
-    g_ui.scroll_offset = 0;
-    g_ui.wild_select_active = false;
-    g_ui.wild_color = UNO_COLOR_RED;
-}
-
 static void uno_ui_update(void) {
     if (!g_ui.initialized) return;
 
@@ -743,27 +700,6 @@ static void uno_ui_update(void) {
         led_set_selected_card(uno_card_none());
 
     g_ui_dirty = false;
-}
-
-static void uno_handle_lobby_input(void) {
-    if (uno_btn_up_pressed()) {
-        if (g_game.requested_bots < 3) {
-            g_game.requested_bots++;
-            g_ui_dirty = true;
-        }
-    }
-
-    if (uno_btn_down_pressed()) {
-        if (g_game.requested_bots > 0) {
-            g_game.requested_bots--;
-            g_ui_dirty = true;
-        }
-    }
-
-    if (uno_btn_play_pressed()) {
-        uno_start_game();
-        g_ui_dirty = true;
-    }
 }
 
 static void uno_handle_wild_select_input(uint8_t player_id, uint8_t hand_index) {
