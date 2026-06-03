@@ -67,6 +67,7 @@ typedef struct {
     uint8_t state_version;
     bool game_started;
     bool game_over;
+    uint8_t winner_id;
     uint8_t requested_bots;
     char last_action[UNO_LAST_ACTION_MAX];
     uno_pending_wild_t pending_wild;
@@ -357,12 +358,13 @@ static void uno_play_card(uint8_t player_id, uint8_t hand_index, uint8_t wild_co
 
     if (player->hand_count == 0) {
         g_game.game_over = true;
+        g_game.winner_id = player_id;
         uno_set_last_action("%s wins", player->name);
     } else {
         uno_set_last_action("%s played", player->name);
     }
 
-    led_set_top_card(card);
+    led_set_top_card(card, g_game.active_color);
 
     if (card.value == UNO_VALUE_DRAW_TWO || card.value == UNO_VALUE_WILD_DRAW_FOUR) {
         uno_apply_card_effect(card);
@@ -487,6 +489,7 @@ static void uno_init_game_state(void) {
     g_game.state_version = 0;
     g_game.game_started = false;
     g_game.game_over = false;
+    g_game.winner_id = 0;
     g_game.requested_bots = 0;
     g_game.pending_wild.active = false;
     g_state_dirty = false;
@@ -535,6 +538,7 @@ static void uno_start_game(void) {
     g_game.pending_draw = 0;
     g_game.game_started = true;
     g_game.game_over = false;
+    g_game.winner_id = 0;
     g_state_dirty = true;
 
     for (uint8_t i = 0; i < UNO_MAX_PLAYERS; i++) {
@@ -565,7 +569,7 @@ static void uno_start_game(void) {
 
     uno_discard(top);
     g_game.active_color = uno_card_is_wild(top) ? UNO_COLOR_RED : (uno_color_t)top.color;
-    led_set_top_card(top);
+    led_set_top_card(top, g_game.active_color);
 
     if (top.value == UNO_VALUE_SKIP || top.value == UNO_VALUE_REVERSE || top.value == UNO_VALUE_DRAW_TWO) {
         uno_apply_card_effect(top);
@@ -650,7 +654,7 @@ static void uno_ui_update(void) {
         }
         uno_display_label_set_text(&g_ui.players_label, buf);
 
-        uno_display_label_set_text(&g_ui.wild_label, "U/D:Bot A:Start");
+        uno_display_label_set_text(&g_ui.wild_label, "L/R:Ch U/D:Bot A:Go");
 
         uno_display_card_set(&g_ui.top_card, uno_card_none(), false);
         for (uint8_t i = 0; i < UNO_HAND_VISIBLE; i++)
@@ -667,7 +671,7 @@ static void uno_ui_update(void) {
     /* Title: whose turn */
     uint8_t cp = g_game.current_player;
     if (g_game.game_over) {
-        snprintf(buf, sizeof(buf), "WINNER:P%u!", (unsigned)cp);
+        snprintf(buf, sizeof(buf), "WIN:P%u!", (unsigned)g_game.winner_id);
     } else if (cp == 0) {
         snprintf(buf, sizeof(buf), ">> My Turn");
     } else {
@@ -1305,6 +1309,12 @@ void uno_host_main(void) {
         }
         if (uno_btn_down_pressed()) {
             if (g_game.requested_bots > 0) { g_game.requested_bots--; g_ui_dirty = true; }
+        }
+        if (uno_btn_left_pressed()) {
+            if (g_game_channel > 0) { g_game_channel--; g_ui_dirty = true; }
+        }
+        if (uno_btn_right_pressed()) {
+            if (g_game_channel < 255) { g_game_channel++; g_ui_dirty = true; }
         }
         if (uno_btn_play_pressed()) {
             uno_start_game();

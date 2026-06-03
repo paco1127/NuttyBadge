@@ -34,6 +34,7 @@ typedef struct {
     bool connected;
     bool ready;
     bool game_started;
+    bool game_over;
     uint16_t conn_handle;
     uint16_t state_handle;
     uint16_t cmd_handle;
@@ -99,6 +100,7 @@ static void uno_client_init_state(void) {
     g_client.player_id = 0xFF;
     g_client.top_card = uno_card_none();
     g_client.state_version = 0;
+    g_client.game_over = false;
     g_client.ui_dirty = true;
 }
 
@@ -194,10 +196,18 @@ static void uno_ui_update(void) {
     }
 
     /* ── Game active ───────────────────────────────────────────────── */
-    /* Title: whose turn */
+    /* Title: whose turn or winner */
     uint8_t cp = g_client.current_player;
     uint8_t me = g_client.player_id;
-    if (me != 0xFF && cp == me) {
+    if (g_client.game_over) {
+        /* Find the winner (player with 0 cards) */
+        for (uint8_t w = 0; w < UNO_MAX_PLAYERS; w++) {
+            if (w < g_client.player_count && g_client.hand_sizes[w] == 0) {
+                snprintf(buf, me == w ? "YOU WIN!" : "P%u Wins!", (unsigned)w);
+                break;
+            }
+        }
+    } else if (me != 0xFF && cp == me) {
         snprintf(buf, sizeof(buf), ">> My Turn");
     } else {
         snprintf(buf, sizeof(buf), "P%u Turn", (unsigned)cp);
@@ -323,8 +333,14 @@ static void uno_client_handle_state(const uno_msg_state_t *state) {
     g_client.player_count = state->player_count;
     g_client.player_id = state->your_player_id;
     g_client.hand_total = state->your_hand_total;
+
+    /* Detect game over: any active player has 0 cards */
+    g_client.game_over = false;
     for (uint8_t i = 0; i < UNO_MAX_PLAYERS; i++) {
         g_client.hand_sizes[i] = state->hand_sizes[i];
+        if (i < state->player_count && state->hand_sizes[i] == 0) {
+            g_client.game_over = true;
+        }
     }
 
     if (g_client.state_version != state->version) {
@@ -334,7 +350,7 @@ static void uno_client_handle_state(const uno_msg_state_t *state) {
         }
     }
 
-    led_set_top_card(g_client.top_card);
+    led_set_top_card(g_client.top_card, g_client.active_color);
     g_client.ui_dirty = true;
 }
 

@@ -168,7 +168,7 @@ bool uno_btn_draw_pressed(void);
 bool uno_btn_back_pressed(void);
 
 void uno_led_init(void);
-void led_set_top_card(card_t card);
+void led_set_top_card(card_t card, uno_color_t active_color);
 void led_set_selected_card(card_t card);
 void set_custom_led(uint8_t mode);
 void uno_custom_led_update(void);

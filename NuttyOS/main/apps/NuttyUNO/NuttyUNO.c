@@ -25,37 +25,51 @@ uint8_t g_game_channel = UNO_GAME_CHANNEL;
  *  TUTORIAL — explanation of UNO rules & controls
  * ═══════════════════════════════════════════════════════════════════ */
 
-#define TUTORIAL_LINES 20
+#define TUTORIAL_LINES 32
 
 static const char *tutorial_text[TUTORIAL_LINES] = {
-    "=== UNO TUTORIAL ===",
+    "=== NUTTY UNO ===",
     "",
-    "GOAL: Empty your hand",
+    "GOAL: Empty your hand!",
+    "Last card wins the game.",
     "",
     "CARD DISPLAY:",
     " 0-9 = Number cards",
-    "  -  = Skip",
-    "  R  = Reverse",
-    " +2  = Draw Two",
-    "  W  = Wild",
-    " WW  = Wild Draw 4",
+    "  -  = Skip turn",
+    "  R  = Reverse dir",
+    " +2  = Next draws 2",
+    "  W  = Wild (pick color)",
+    " WW  = Wild + draw 4",
     "",
-    "LED = Card color",
-    "R G B Y shown on RGB",
+    "LED = Active color",
+    "Top LED = top card clr",
+    "Bot LED = selected card",
+    "Wild LED = chosen color",
     "",
-    "CONTROLS:",
+    "CONTROLS (Game):",
     " </> = Scroll hand",
-    "  A  = Play card",
-    "  B  = Draw card",
-    "START= Back / Leave",
+    "  A  = Play selected",
+    "  B  = Draw a card",
+    "START= Leave game",
     "",
-    "PLAY RULES:",
+    "CONTROLS (Lobby):",
+    " L/R = Change channel",
+    " U/D = Bot count",
+    "  A  = Start game",
+    "",
+    "RULES:",
     " Match color OR number",
     " Wild plays anytime",
-    " +2/WW stacks (house)",
+    "+2/WW stack (house rule)",
     "",
-    "Press START to go back"
+    "U/D:Scroll START:Back"
 };
+
+#define TUTORIAL_LINE_H 5
+#define TUTORIAL_VISIBLE_LINES 12
+
+static int tutorial_scroll = 0;
+static lv_obj_t *tutorial_lbls[TUTORIAL_LINES];
 
 static void tutorial_draw(void) {
     lv_obj_t *root = NuttyDisplay_getUserAppArea();
@@ -66,10 +80,29 @@ static void tutorial_draw(void) {
     lv_obj_set_style_bg_opa(root, LV_OPA_TRANSP, LV_PART_MAIN);
 
     for (int i = 0; i < TUTORIAL_LINES; i++) {
-        lv_obj_t *lbl = lv_label_create(root);
-        lv_label_set_text(lbl, tutorial_text[i]);
-        lv_obj_set_pos(lbl, 2, i * 5);
-        lv_obj_set_style_text_font(lbl, &cg_pixel_4x5_mono, LV_PART_MAIN);
+        tutorial_lbls[i] = lv_label_create(root);
+        lv_label_set_text(tutorial_lbls[i], tutorial_text[i]);
+        lv_obj_set_pos(tutorial_lbls[i], 2, i * TUTORIAL_LINE_H);
+        lv_obj_set_style_text_font(tutorial_lbls[i], &cg_pixel_4x5_mono, LV_PART_MAIN);
+    }
+    NuttyDisplay_unlockLVGL();
+}
+
+static void tutorial_update_scroll(void) {
+    int max_scroll = TUTORIAL_LINES - TUTORIAL_VISIBLE_LINES;
+    if (max_scroll < 0) max_scroll = 0;
+    if (tutorial_scroll > max_scroll) tutorial_scroll = max_scroll;
+    if (tutorial_scroll < 0) tutorial_scroll = 0;
+
+    NuttyDisplay_lockLVGL();
+    for (int i = 0; i < TUTORIAL_LINES; i++) {
+        int y = (i - tutorial_scroll) * TUTORIAL_LINE_H;
+        lv_obj_set_pos(tutorial_lbls[i], 2, y);
+        if (y < 0 || y >= TUTORIAL_VISIBLE_LINES * TUTORIAL_LINE_H) {
+            lv_obj_add_flag(tutorial_lbls[i], LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_clear_flag(tutorial_lbls[i], LV_OBJ_FLAG_HIDDEN);
+        }
     }
     NuttyDisplay_unlockLVGL();
 }
@@ -77,10 +110,25 @@ static void tutorial_draw(void) {
 static void tutorial_main(void) {
     ESP_LOGI(TAG, "Starting UNO Tutorial");
     uno_btn_init();
+    tutorial_scroll = 0;
     tutorial_draw();
+    tutorial_update_scroll();
 
     while (1) {
         if (uno_btn_back_pressed()) break;
+        if (uno_btn_up_pressed()) {
+            if (tutorial_scroll > 0) {
+                tutorial_scroll--;
+                tutorial_update_scroll();
+            }
+        }
+        if (uno_btn_down_pressed()) {
+            int max_scroll = TUTORIAL_LINES - TUTORIAL_VISIBLE_LINES;
+            if (max_scroll > 0 && tutorial_scroll < max_scroll) {
+                tutorial_scroll++;
+                tutorial_update_scroll();
+            }
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 

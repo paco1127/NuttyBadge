@@ -178,9 +178,11 @@ void uno_led_init(void) {
     NuttyRGB_DisplayNow();
 }
 
-void led_set_top_card(card_t card) {
+void led_set_top_card(card_t card, uno_color_t active_color) {
     if (uno_card_is_none(card)) {
         NuttyRGB_SetRGBWithoutDisplay(0, 0, 0, 0);
+    } else if (uno_card_is_wild(card)) {
+        uno_led_rgb_set_bulb(0, active_color);
     } else {
         uno_led_rgb_set_bulb(0, (uno_color_t)card.color);
     }
