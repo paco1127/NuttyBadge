@@ -22,6 +22,15 @@ Development Board: LuatOS ESP32S3 Development Board (Hardware schematic can be f
 ## How to build / flash / launch monitor
 Hardware Connection: Just plug-in the USB-C Cable. Make sure the onboard DIP-switch is on the USB-Serial Function. (This is the default)
 
+### UNO multiplayer (ESP32-S3)
+1. `idf.py set-target esp32s3`
+2. `idf.py menuconfig`
+   - Enable Bluetooth (NimBLE).
+   - Set **NuttyUNO → UNO game channel** (`CONFIG_GAME_CHANNEL`) to match all badges.
+3. Build and flash: `idf.py build` then `idf.py flash`
+
+The apps list contains **UNO Host** (host + player 0) and **UNO Client**. Host uses UP/DOWN to set bot count, PLAY to start, and START (hold) to exit. Clients auto-scan for `UNO_<channel>` and sync over BLE.
+
 To Build: `idf.py build`
 
 To Build and Flash: `idf.py flash`
@@ -51,6 +60,5 @@ Below is short explanation of remaining files in the project folder.
 │   └── main.c
 └── README.md                  This is the file you are currently reading
 ```
-
 
 
